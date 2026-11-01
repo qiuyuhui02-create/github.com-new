@@ -14,10 +14,19 @@ export const user = {
   identities: [],
   created_at: new Date().toISOString(),
 };
-let state, usedHashes, challenge;
+let state, usedHashes, challenge, accountPassword, requireReauth, emailVerified;
+const currentUser = () => ({
+  ...user,
+  email_confirmed_at: emailVerified ? user.email_confirmed_at : undefined,
+});
 function reset() {
   state = {
     fixture: "framework-auth-test-v1",
+    passwordLogins: 0,
+    passwordUpdates: 0,
+    passwordUpdateAttempts: 0,
+    userCreations: 0,
+    userDeletions: 0,
     emails: 0,
     hashVerifications: 0,
     otpVerifications: 0,
@@ -26,6 +35,9 @@ function reset() {
   };
   usedHashes = new Set();
   challenge = "";
+  accountPassword = "";
+  requireReauth = false;
+  emailVerified = true;
 }
 reset();
 function session() {
@@ -34,7 +46,7 @@ function session() {
     refresh_token: "local-fixture-refresh",
     token_type: "bearer",
     expires_in: 3600,
-    user,
+    user: currentUser(),
   };
 }
 const server = http.createServer(async (req, res) => {
@@ -43,7 +55,7 @@ const server = http.createServer(async (req, res) => {
     "Access-Control-Allow-Headers",
     "authorization,apikey,content-type,x-client-info,x-supabase-api-version",
   );
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
   res.setHeader("x-supabase-api-version", "2024-01-01");
   res.setHeader("Content-Type", "application/json");
   if (req.method === "OPTIONS") {
@@ -72,12 +84,28 @@ const server = http.createServer(async (req, res) => {
   } catch {
     return json(400, { error: "json" });
   }
+  if (path === "/__test/config") {
+    if (typeof body.password === "string") accountPassword = body.password;
+    if (typeof body.requireReauth === "boolean")
+      requireReauth = body.requireReauth;
+    if (typeof body.emailVerified === "boolean")
+      emailVerified = body.emailVerified;
+    return json(200, { ok: true });
+  }
+  if (path === "/auth/v1/signup" || path.startsWith("/auth/v1/admin")) {
+    state.userCreations++;
+    return json(500, { error: "User creation/admin API forbidden" });
+  }
   if (path.startsWith("/rest/") || path.startsWith("/storage/")) {
     state.databaseRequests++;
     return json(500, { error: "Fixture forbids data operations" });
   }
   if (path === "/auth/v1/otp") {
     state.emails++;
+    if (body.create_user !== false) {
+      state.userCreations++;
+      return json(500, { error: "Implicit signup forbidden" });
+    }
     if (body.email === "limited@example.com")
       return json(429, {
         code: "over_email_send_rate_limit",
@@ -112,6 +140,28 @@ const server = http.createServer(async (req, res) => {
     return json(200, session());
   }
   if (path === "/auth/v1/token") {
+    if (
+      new URL(req.url, `http://${host}:${port}`).searchParams.get(
+        "grant_type",
+      ) === "password"
+    ) {
+      state.passwordLogins++;
+      if (
+        body.email !== user.email ||
+        !accountPassword ||
+        body.password !== accountPassword
+      )
+        return json(400, {
+          code: "invalid_credentials",
+          msg: "Invalid login credentials",
+        });
+      if (!emailVerified)
+        return json(400, {
+          code: "email_not_confirmed",
+          msg: "Email not confirmed",
+        });
+      return json(200, session());
+    }
     state.exchanges++;
     if (
       body.auth_code !== "valid-code" ||
@@ -126,7 +176,43 @@ const server = http.createServer(async (req, res) => {
       });
     return json(200, session());
   }
-  if (path === "/auth/v1/user") return json(200, user);
+  if (path === "/auth/v1/user") {
+    if (req.method === "PUT") {
+      state.passwordUpdateAttempts++;
+      if (!emailVerified)
+        return json(403, {
+          code: "email_not_confirmed",
+          msg: "Email not confirmed",
+        });
+      if (requireReauth)
+        return json(400, {
+          code: "reauthentication_needed",
+          msg: "Reauthentication required",
+        });
+      // auth-js adds null PKCE fields even when updating only a password.
+      if (
+        Object.keys(body).some(
+          (k) =>
+            k !== "password" &&
+            !(
+              ["code_challenge", "code_challenge_method"].includes(k) &&
+              body[k] === null
+            ),
+        )
+      )
+        return json(400, { error: "Only password may be updated" });
+      if (body.password === accountPassword)
+        return json(400, { code: "same_password", msg: "Same password" });
+      accountPassword = body.password;
+      state.passwordUpdates++;
+      return json(200, currentUser());
+    }
+    if (req.method === "DELETE") {
+      state.userDeletions++;
+      return json(500, { error: "Deletion forbidden" });
+    }
+    return json(200, currentUser());
+  }
   if (path === "/auth/v1/logout") return json(200, {});
   return json(404, { error: "Unimplemented fixture endpoint" });
 });

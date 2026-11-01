@@ -1,5 +1,7 @@
 # Supabase 邮箱登录修复与后台配置
 
+> **当前免费方案以 [密码登录指南](PASSWORD_LOGIN.md) 为准：首次保留 Supabase 默认 Magic Link，登录后设置密码，之后默认邮箱＋密码。无需 Custom SMTP，也无需执行本文第三步的历史自定义模板示例。**
+
 目标生产站点：**https://framework-studio-psi.vercel.app**。本修复从 main 独立建立 `fix/supabase-email-login`，不依赖或更新 PR #3/#4/#5。不需要 SQL，不修改任何项目记录、RLS、素材、资产编号或备份。
 
 ## 已确认的代码问题与线上待核验项
@@ -50,7 +52,7 @@
 5. `/auth/confirm` 是本网站内部的确认页，不需要作为 `signInWithOtp` 的额外回调白名单项。
 6. Authentication → Sign In / Providers → Email，确认启用邮箱登录。
 
-## 第三步：邮件同时提供验证码和安全确认链接
+## 第三步（历史可选）：自定义邮件模板示例，当前免费方案不需要
 
 在 Supabase **Authentication → Email Templates**，先保留原模板副本，再更新下面两个登录相关模板。不同控制台版本的菜单可能显示为 Emails / Templates。
 
