@@ -2035,3 +2035,62 @@ footer em {
   overflow-y: auto;
   scrollbar-width: thin;
 }
+.auth-shell {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 580px;
+  padding: 50px 20px;
+  min-height: 100dvh;
+  display: flex;
+  align-items: flex-start;
+}
+.auth-shell > .panel {
+  width: 100%;
+  padding: 30px;
+}
+.auth-shell h1 {
+  font-size: 26px;
+  margin: 10px 0 25px;
+}
+.auth-form .help,
+.auth-shell > .panel > .help {
+  font-size: 11px;
+  line-height: 1.9;
+}
+.auth-shell .text-button {
+  display: block;
+  margin-top: 20px;
+  line-height: 1.8;
+}
+.auth-error {
+  padding: 12px;
+  border: 1px solid #986e4b;
+  border-radius: 6px;
+  background: #ab7f3f0d;
+  color: #d5b38a;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.auth-error a {
+  text-decoration: underline;
+}
+.auth-message {
+  padding: 12px;
+  border: 1px solid #526d40;
+  border-radius: 6px;
+  color: #c0d7a8;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.auth-form .primary,
+.auth-form .secondary {
+  align-self: flex-start;
+}
+@media (max-width: 600px) {
+  .auth-shell {
+    padding: 25px 12px;
+  }
+  .auth-shell > .panel {
+    padding: 22px;
+  }
+}

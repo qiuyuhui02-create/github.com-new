@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { handleAuthCallback, protectAuthResponse } from "@/lib/auth/callback";
+export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
-  const code = request.nextUrl.searchParams.get("code");
-  if (code) {
-    const client = await createClient();
-    if (client) {
-      try {
-        const { error } = await client.auth.exchangeCodeForSession(code);
-        if (!error) return NextResponse.redirect(new URL("/", request.url));
-      } catch {
-        /* Display a recoverable sign-in error without leaking provider errors. */
-      }
-    }
-  }
-  return NextResponse.redirect(new URL("/?auth_error=1", request.url));
+  return handleAuthCallback(request);
+}
+export async function POST(request: NextRequest) {
+  return handleAuthCallback(request);
+}
+// Do not let Next.js implement HEAD by running the credential-consuming GET path.
+export async function HEAD() {
+  return protectAuthResponse(new NextResponse(null, { status: 200 }));
 }

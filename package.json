@@ -8,7 +8,8 @@
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:auth:e2e": "node tests/run-auth-e2e.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
