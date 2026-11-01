@@ -36,20 +36,15 @@ npm start
 
 生成模型字段仅用于记录；本版本没有图像或视频生成 API，也不会执行模型调用。示例图片为插画。
 
-Supabase 已实现邮箱登录、手动推送/载入项目和私有图片存储适配，**尚未连接真实 Supabase 项目或进行云端联调**。云端使用按用户隔离的 JSON 项目快照，不含多人协作或冲突合并。推送会覆盖当前用户的云端快照，载入会替换本地项目，操作前有确认。登录不会自动上传演示数据。
+Supabase 已接入官方 `@supabase/ssr`：浏览器/服务端客户端、Next.js 16 `proxy.ts` 会话刷新、PKCE 登录回调、按账号分开的本地缓存。资产、分镜、任务和 Prompt 以用户专属 JSON 项目原子保存，带版本冲突检查。支持直接把 JSON 备份与内嵌图片导入云端。
 
-OpenAI 接口已实现，但默认关闭。开发测试仅验证关闭状态，没有执行付费调用。本地 Agent 是确定性的规则和模板，界面已标注，不是大模型推理。
+**真实数据库尚未联调**：本次环境出站规则不允许目标 Supabase 域名。仓库提供可重复执行的 SQL 升级脚本、只读审计脚本和 PostgreSQL 双用户 RLS 自动化测试。请按下方操作完成真实项目配置。
 
-## 配置 Supabase
+## 配置 Supabase 与 Vercel
 
-1. 在 Supabase 新建项目，在 SQL Editor 执行 `supabase/schema.sql`（首次执行一次），创建项目表、RLS 策略和私有 `assets` bucket。
-2. 在 Authentication → URL Configuration 填入本地与 Vercel 域名的 Site URL / Redirect URLs。
-3. 开启邮箱登录。可点击登录邮件中的链接；如使用验证码，请在 Supabase 邮件模板中包含 `{{ .Token }}`。
-4. 复制 `.env.example` 为 `.env.local`，填入项目 URL 和浏览器可用的 anon/publishable key。不要填 service_role。
-5. 重启 `npm run dev`，在左下角“项目与云端设置”登录。
-6. 点击“推送到云端”，再测试“从云端载入”。已登录上传图片时会存入私有 Storage，显示时生成 1 小时签名 URL；过期后刷新页面。上传后请保存资产并推送项目。
+完整的新手步骤见 [Supabase / Vercel 配置指南](docs/SUPABASE_SETUP.md)，包括数据库检查、建表、RLS、邮箱回调、环境变量、备份迁移和两个账号的验收方法。
 
-私有图片对象不会在移除资产/版本时立即物理删除，避免历史版本与快照断链；可在 Supabase Storage 控制台管理孤立对象。此版本不是素材存储清理工具。
+需要在 Vercel 设置 `NEXT_PUBLIC_SUPABASE_URL` 与 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`，重新部署；在 Supabase 执行 `supabase/schema.sql`，配置 `/auth/callback` 回调地址。无需数据库密码、service_role 或 Secret Key。
 
 ## 可选 OpenAI（可能收费）
 
@@ -78,7 +73,7 @@ npm run build
 CHROMIUM_PATH=/usr/bin/chromium npx playwright test
 ```
 
-测试覆盖资产新增/上传/版本/持久化、搜索、分镜关联和时间线、任务完成、Prompt 管理、本地 Agent、移动端布局和关闭付费 API 的行为。云端联调需要你自己的服务账号。
+测试覆盖资产工作流、移动端、云端导入和冲突处理，以及基于 PGlite PostgreSQL 的双用户 RLS、私有目录边界和幂等升级测试。真实云端联调仍需完成控制台配置及双账号验收。
 
 ## 后续部署到 Vercel
 
