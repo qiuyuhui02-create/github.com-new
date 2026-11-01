@@ -51,6 +51,7 @@ import {
   bindMedia,
   clearMedia,
   mediaURL,
+  mediaStatus,
   mediaSnapshot,
   subscribeMedia,
 } from "@/lib/media";
@@ -266,7 +267,7 @@ export default function StudioPage() {
       !confirm(
         direction === "push"
           ? imported
-            ? "仅导入轻量元数据到云端，媒体原件须保存在 Mac。旧 Base64 请先在本地素材库迁移。是否继续？"
+            ? "仅导入轻量元数据到云端，媒体原件保存在 Windows 连接的 SSD。旧 Base64 请先在本地素材库迁移。是否继续？"
             : "将当前项目保存到云端？若其他页面已更新项目，本次保存会被拒绝。"
           : "用云端项目替换当前本地项目？建议先导出本地备份。",
       )
@@ -1185,7 +1186,7 @@ export default function StudioPage() {
                 <small className="help">
                   JPG / PNG / WebP · 本地文件，不上传
                   <br />
-                  {"刷新后需重新选择文件，原件请归档到 Mac 素材目录"}
+                  {"原件保存在本地 SSD；此设备未连接时仍可编辑文字"}
                 </small>
                 <h4>
                   参考图 <span>{asset.references.length}</span>
@@ -1752,7 +1753,9 @@ function AssetImage({ src, alt }: { src: string; alt: string }) {
   ) : (
     <div className="image-placeholder">
       <ImagePlus size={32} />
-      <span>等待你的灵感</span>
+      <span>
+        {src.startsWith("local:") ? mediaStatus(src.slice(6)) : "等待你的灵感"}
+      </span>
     </div>
   );
 }

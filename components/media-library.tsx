@@ -3,6 +3,9 @@ import { useState, useSyncExternalStore, useRef, useEffect } from "react";
 import type { Studio } from "@/lib/model";
 import {
   bindMedia,
+  clearMedia,
+  isMediaLibraryConnected,
+  indexDirectoryFiles,
   describeFile,
   directoryPath,
   downloadBlob,
@@ -44,7 +47,59 @@ export default function MediaLibrary({
       live.current = false;
     };
   }, []);
+  const [directoryFiles, setDirectoryFiles] = useState<File[]>([]);
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [pathQuery, setPathQuery] = useState("");
   const files = data.files || [];
+  const candidates = directoryFiles.filter(
+    (f) =>
+      /^(image|video|audio)\//.test(f.type) ||
+      /\.(png|jpe?g|webp|gif|tiff?|bmp|mov|mp4|mkv|webm|exr|psd|blend|wav|mp3|m4a|aiff?)$/i.test(
+        f.name,
+      ),
+  );
+  async function registerDirectory() {
+    const selected = candidates.filter((f) =>
+      selectedPaths.includes(directoryPath(f)),
+    );
+    if (!selected.length) return;
+    const previous = files.find((f) => f.id === previousId);
+    const plan = await indexDirectoryFiles(files, selected, kind, {
+      ...(assetId ? { assetId } : {}),
+      ...(shotId ? { shotId } : {}),
+      ...(previous
+        ? { previousId: previous.id, version: previous.version + 1 }
+        : {}),
+    });
+    if (!live.current) return;
+    plan.bindings.forEach((v) => bindMedia(v.id, v.file, true));
+    const imageRefs = plan.added
+      .filter((f) => f.format.startsWith("image/"))
+      .map((f) => `local:${f.id}`);
+    onChange({
+      files: plan.files,
+      ...(assetId && imageRefs.length
+        ? {
+            assets: data.assets.map((a) =>
+              a.id === assetId
+                ? { ...a, references: [...a.references, ...imageRefs] }
+                : a,
+            ),
+          }
+        : {}),
+      ...(shotId && kind === "分镜图" && imageRefs.length
+        ? {
+            shots: data.shots.map((s) =>
+              s.id === shotId ? { ...s, image: imageRefs[0] } : s,
+            ),
+          }
+        : {}),
+    });
+    setSelectedPaths([]);
+    tell(
+      `已登记 ${plan.added.length} 项，重连已有 ${plan.bindings.length - plan.added.length} 项。使用真实相对路径，SSD 文件未移动或改写。`,
+    );
+  }
   async function run(action: () => Promise<void>) {
     setBusy(true);
     try {
@@ -58,10 +113,17 @@ export default function MediaLibrary({
   return (
     <section className="media-library">
       <div className="panel">
-        <h2>本地素材库 · Mac 文件为原件</h2>
+        <h2>跨平台本地素材库 · 原件保存在 Windows SSD</h2>
+        <p role="status" className="help">
+          {isMediaLibraryConnected()
+            ? "素材目录已连接（仅本次会话）"
+            : "素材未连接"}
+        </p>
         <p className="help">
-          Safari
-          网页无法后台自动写入你的素材文件夹。这里登记文件、校验与重新定位；不会移动、删除或覆盖磁盘原件。刷新后请重新选择文件夹。已选择的文件只在本次页面会话可预览。
+          Mac（Safari）只管理剧本、Prompt、分镜、任务和资产文字，无需连接 SSD
+          或取得 NTFS 写入权限。Windows（Chrome / Edge）可选择 SSD
+          项目根目录，登记真实相对路径。网页只读取文件，不移动、删除或覆盖原件；Supabase
+          仅同步文字、状态和索引。
         </p>
         <div className="field-pair">
           <label>
@@ -163,7 +225,7 @@ export default function MediaLibrary({
                     : {}),
                 });
                 tell(
-                  "已登记。请下载原文件副本并按清单路径归档，然后选择整个素材目录核验。",
+                  "单文件已登记，路径暂为建议值。建议选择 SSD 项目目录，按真实路径登记；不会要求复制或移动原件。",
                 );
               });
               e.target.value = "";
@@ -171,7 +233,7 @@ export default function MediaLibrary({
           />
         </label>
         <label className="upload-button">
-          选择项目素材目录并检查缺失
+          选择 SSD 项目目录（读取路径与核验）
           <input
             type="file"
             {...{ webkitdirectory: "", directory: "" }}
@@ -179,10 +241,14 @@ export default function MediaLibrary({
             disabled={busy}
             onChange={(e) => {
               const selected = Array.from(e.target.files || []);
+              if (!selected.length) return;
+              setDirectoryFiles(selected);
+              setSelectedPaths([]);
+              setPathQuery("");
               void run(async () => {
                 const found = await inspectDirectory(files, selected);
                 tell(
-                  `检查完成：${found}/${files.length} 个文件已校验。其他项为缺失或内容不符。`,
+                  `目录核验完成：${found}/${files.length} 项已校验。未找到项仅指当前所选目录，不能据此判断原件丢失。`,
                 );
               });
               e.target.value = "";
@@ -190,10 +256,66 @@ export default function MediaLibrary({
           />
         </label>
         <p className="help">
-          如果 Safari
-          不显示文件夹选择，请使用下方逐文件“重新定位”。生成视频与最终 4K
-          视频通过 Finder 复制到清单目录，不经过 Vercel 或 Supabase。
+          未选择目录时显示“素材未连接”，不检查或推断文件丢失，文字管理功能正常可用。刷新后重新选择目录；盘符不保存到云端。目录核验不会自动登记新素材。
         </p>
+        {isMediaLibraryConnected() && (
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => {
+              clearMedia();
+              setDirectoryFiles([]);
+              setSelectedPaths([]);
+            }}
+          >
+            断开本次素材连接
+          </button>
+        )}
+        {directoryFiles.length > 0 && (
+          <div className="directory-registration">
+            <h3>按 SSD 真实相对路径登记</h3>
+            <p className="help">
+              以你选择的项目目录为根，勾选需要登记的文件（可多选）。保留现有文件结构，不生成盘符或绝对路径。上方的用途与资产/分镜关联应用于新登记项；已有相同索引仅重连，不更改其关联。
+            </p>
+            <input
+              aria-label="搜索目录素材路径"
+              placeholder="搜索相对路径…"
+              value={pathQuery}
+              onChange={(e) => setPathQuery(e.target.value)}
+            />
+            <select
+              aria-label="目录中的素材（可多选）"
+              multiple
+              size={6}
+              disabled={busy}
+              value={selectedPaths}
+              onChange={(e) =>
+                setSelectedPaths(
+                  Array.from(e.target.selectedOptions, (o) => o.value),
+                )
+              }
+            >
+              {candidates
+                .filter((f) =>
+                  directoryPath(f)
+                    .toLowerCase()
+                    .includes(pathQuery.toLowerCase()),
+                )
+                .map((f) => (
+                  <option key={directoryPath(f)} value={directoryPath(f)}>
+                    {directoryPath(f)}
+                  </option>
+                ))}
+            </select>
+            <button
+              className="primary"
+              disabled={busy || !selectedPaths.length}
+              onClick={() => void run(registerDirectory)}
+            >
+              登记所选目录素材（{selectedPaths.length}）
+            </button>
+          </div>
+        )}
         <div className="button-row">
           <button
             className="secondary"
@@ -286,10 +408,9 @@ export default function MediaLibrary({
         <h3>目录约定</h3>
         <pre className="directory-tree">{`FRAMEWORK-Project/\n  assets/characters/    人物\n  assets/environments/  场景\n  assets/props/         道具\n  references/          参考图\n  storyboards/         分镜图\n  videos/generated/    生成视频\n  videos/final/        最终/4K视频\n  scripts/             剧本导出\n  backups/             JSON清单与迁移报告\n每项素材：<目录>/<文件ID>/v<版本号>/<文件名>`}</pre>
         <p className="help">
-          迁移整个库：用 Finder 复制根文件夹与最新
-          JSON，保留内部相对目录；在新位置导入 JSON 后重新选择根文件夹。只有
-          SHA-256 一致才会显示“已校验”。JSON
-          不包含媒体原件，请同时备份整个素材目录。
+          目录仅为新项目示例，不要求调整现有 SSD 目录。Windows
+          用文件资源管理器备份素材根目录，保留相对结构；Mac 只需管理项目
+          JSON。迁移或恢复后重新选择根目录核验，JSON 不包含媒体原件。
         </p>
       </div>
       <div className="media-records">
