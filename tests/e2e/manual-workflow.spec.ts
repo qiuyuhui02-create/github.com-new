@@ -48,6 +48,10 @@ test("manual script: common prompt clipboard, selected paragraph adoption, undo,
   );
   await page.goto("/");
   await page.getByRole("button", { name: "剧本工作台", exact: true }).click();
+  await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
+    initial.script!.scenes[0].draft,
+  );
+  await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
   for (const name of ["ChatGPT 候选", "Gemini 候选", "Claude 候选"])
     await expect(
       page.getByRole("heading", { name, exact: true }),
@@ -64,40 +68,44 @@ test("manual script: common prompt clipboard, selected paragraph adoption, undo,
   expect(copied).not.toContain("風が吹く");
   const candidate = page.getByLabel("AI 修改结果 1", { exact: true });
   await candidate.fill("人物：新的手动候选。\n\n不要自动采用第二段。");
-  await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
-    initial.script!.scenes[0].draft,
-  );
+  await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveCount(0);
   await candidate.focus();
   await candidate.press("Control+Home");
   await candidate.press("Shift+End");
   await page
     .getByRole("button", { name: "将结果 1 选中文字加入工作稿", exact: true })
     .click();
+  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
   await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
     initial.script!.scenes[0].draft + "\n\n人物：新的手动候选。",
   );
+  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
   await page.getByRole("button", { name: "撤销最近修改", exact: true }).click();
   await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
     initial.script!.scenes[0].draft,
   );
+  await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
   await page
     .getByRole("button", { name: "保存结果 1 版本", exact: true })
     .click();
+  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
   await page.getByLabel("场景修改稿", { exact: true }).fill("单独的人工改写");
   await page.getByRole("button", { name: "修改差异", exact: true }).click();
   await expect(page.locator(".diff-row.changed").first()).toBeVisible();
-  await page.getByRole("button", { name: "最终剧本", exact: true }).click();
+  await page.getByRole("button", { name: "确认定稿", exact: true }).click();
   await expect(page.locator(".final-text")).toHaveText(
     initial.script!.scenes[0].final!.text,
   );
   await page.reload();
   await page.getByRole("button", { name: "剧本工作台", exact: true }).click();
+  await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
   await expect(page.getByLabel("统一修改要求", { exact: true })).toHaveValue(
     "自然对白，保留日本語，简化解释性台词。",
   );
   await expect(candidate).toHaveValue(
     "人物：新的手动候选。\n\n不要自动采用第二段。",
   );
+  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
   await page.getByRole("button", { name: "撤销最近修改", exact: true }).click();
   await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
     initial.script!.scenes[0].draft,
@@ -265,13 +273,11 @@ test("manual shot, nine-grid order and four independent video references survive
     const mobile = await phone.newPage();
     await mobile.goto("http://127.0.0.1:3000/");
     mobile.once("dialog", (d) => d.accept());
-    await mobile
-      .getByLabel("手机导入项目快照")
-      .setInputFiles({
-        name: "manual.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(raw),
-      });
+    await mobile.getByLabel("手机导入项目快照").setInputFiles({
+      name: "manual.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(raw),
+    });
     await expect(mobile.locator(".toast")).toContainText("项目快照已导入");
     await mobile.getByRole("button", { name: "Prompt", exact: true }).click();
     const video = mobile

@@ -1,3 +1,4 @@
+import type { ScriptScene } from "./screenplay";
 import { sha256 } from "@noble/hashes/sha2.js";
 import type { Studio } from "./model";
 export type MediaKind =
@@ -317,8 +318,79 @@ export function cloudMetadata(data: Studio): Studio {
       ...(f.assetId ? { assetId: f.assetId } : {}),
       ...(f.shotId ? { shotId: f.shotId } : {}),
     }));
+  const copyScene = (s: ScriptScene): ScriptScene => ({
+    id: s.id,
+    heading: s.heading,
+    ...Object.fromEntries(
+      (["sceneNumber", "interiorExterior", "timeOfDay"] as const)
+        .filter((k) => s[k] !== undefined)
+        .map((k) => [k, s[k]]),
+    ),
+    ...(s.manualComparisons
+      ? {
+          manualComparisons: s.manualComparisons.map((c) => ({
+            model: c.model,
+            text: c.text,
+          })),
+        }
+      : {}),
+    original: s.original,
+    draft: s.draft,
+    draftRevision: s.draftRevision,
+    ...(s.draftUndo ? { draftUndo: [...s.draftUndo] } : {}),
+    ...(s.draftEditBase !== undefined
+      ? { draftEditBase: s.draftEditBase }
+      : {}),
+    ...(s.undoTargetRevision
+      ? { undoTargetRevision: s.undoTargetRevision }
+      : {}),
+    ...(s.mergeCandidate !== undefined
+      ? { mergeCandidate: s.mergeCandidate }
+      : {}),
+    status: s.status,
+    assetIds: [...s.assetIds],
+    versions: s.versions.map((v) => ({
+      id: v.id,
+      text: v.text,
+      model: v.model,
+      ...(v.kind ? { kind: v.kind } : {}),
+      at: v.at,
+    })),
+    ...(s.final
+      ? {
+          final: {
+            text: s.final.text,
+            revision: s.final.revision,
+            at: s.final.at,
+          },
+        }
+      : {}),
+    finalHistory: s.finalHistory.map((v) => ({
+      text: v.text,
+      revision: v.revision,
+      at: v.at,
+    })),
+  });
   if (data.script)
     result.script = {
+      ...(data.script.title !== undefined ? { title: data.script.title } : {}),
+      ...(data.script.synopsis !== undefined
+        ? { synopsis: data.script.synopsis }
+        : {}),
+      ...(data.script.sourceMode ? { sourceMode: data.script.sourceMode } : {}),
+      ...(data.script.chapters
+        ? {
+            chapters: data.script.chapters.map((c) => ({
+              id: c.id,
+              name: c.name,
+              sceneIds: [...c.sceneIds],
+              ...(c.collapsed !== undefined ? { collapsed: c.collapsed } : {}),
+              ...(c.originalText !== undefined
+                ? { originalText: c.originalText }
+                : {}),
+            })),
+          }
+        : {}),
       ...(data.script.revisionInstructions !== undefined
         ? { revisionInstructions: data.script.revisionInstructions }
         : {}),
@@ -327,54 +399,10 @@ export function cloudMetadata(data: Studio): Studio {
         language: data.script.original.language,
         at: data.script.original.at,
       },
-      scenes: data.script.scenes.map((s) => ({
-        id: s.id,
-        heading: s.heading,
-        ...(s.manualComparisons
-          ? {
-              manualComparisons: s.manualComparisons.map((c) => ({
-                model: c.model,
-                text: c.text,
-              })),
-            }
-          : {}),
-        original: s.original,
-        draft: s.draft,
-        draftRevision: s.draftRevision,
-        ...(s.draftUndo ? { draftUndo: [...s.draftUndo] } : {}),
-        ...(s.draftEditBase !== undefined
-          ? { draftEditBase: s.draftEditBase }
-          : {}),
-        ...(s.undoTargetRevision
-          ? { undoTargetRevision: s.undoTargetRevision }
-          : {}),
-        ...(s.mergeCandidate !== undefined
-          ? { mergeCandidate: s.mergeCandidate }
-          : {}),
-        status: s.status,
-        assetIds: [...s.assetIds],
-        versions: s.versions.map((v) => ({
-          id: v.id,
-          text: v.text,
-          model: v.model,
-          ...(v.kind ? { kind: v.kind } : {}),
-          at: v.at,
-        })),
-        ...(s.final
-          ? {
-              final: {
-                text: s.final.text,
-                revision: s.final.revision,
-                at: s.final.at,
-              },
-            }
-          : {}),
-        finalHistory: s.finalHistory.map((v) => ({
-          text: v.text,
-          revision: v.revision,
-          at: v.at,
-        })),
-      })),
+      scenes: data.script.scenes.map(copyScene),
+      ...(data.script.archivedScenes
+        ? { archivedScenes: data.script.archivedScenes.map(copyScene) }
+        : {}),
     };
   assertCloudSafe(result);
   return result;

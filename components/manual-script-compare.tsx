@@ -18,7 +18,9 @@ export default function ManualScriptCompare({
   scene: ScriptScene;
   patch: (s: ScriptScene) => void;
 }) {
-  const [source, setSource] = useState<"original" | "draft">("original");
+  const [source, setSource] = useState<"original" | "draft">(
+    scene.original.trim() ? "original" : "draft",
+  );
   const selection = useRef<{
     index: number;
     start: number;

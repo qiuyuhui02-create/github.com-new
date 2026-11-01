@@ -1,3 +1,4 @@
+import type { ScriptChapter } from "./screenplay-structure";
 import type { Studio, Shot } from "./model";
 export type ScriptLanguage = "中文" | "日本語";
 export type ScriptVersion = {
@@ -12,6 +13,9 @@ export type ScriptScene = {
   id: string;
   manualComparisons?: { model: string; text: string }[];
   heading: string;
+  sceneNumber?: string;
+  interiorExterior?: string;
+  timeOfDay?: string;
   original: string;
   draft: string;
   draftRevision: number;
@@ -26,6 +30,11 @@ export type ScriptScene = {
   undoTargetRevision?: number;
 };
 export type Screenplay = {
+  title?: string;
+  synopsis?: string;
+  sourceMode?: "blank" | "imported";
+  chapters?: ScriptChapter[];
+  archivedScenes?: ScriptScene[];
   revisionInstructions?: string;
   original: { text: string; language: ScriptLanguage; at: string };
   scenes: ScriptScene[];
@@ -270,7 +279,60 @@ export function validateScreenplay(x: unknown): x is Screenplay {
     Number.isSafeInteger(v.revision) &&
     v.revision > 0 &&
     Number.isFinite(Date.parse(v.at));
+  const validScene = (v: ScriptScene) =>
+    v &&
+    (v.undoTargetRevision === undefined ||
+      (Number.isSafeInteger(v.undoTargetRevision) &&
+        v.undoTargetRevision > 0)) &&
+    typeof v.id === "string" &&
+    typeof v.heading === "string" &&
+    [v.sceneNumber, v.interiorExterior, v.timeOfDay].every(
+      (t) => t === undefined || (typeof t === "string" && t.length <= 200),
+    ) &&
+    (v.manualComparisons === undefined ||
+      (Array.isArray(v.manualComparisons) &&
+        v.manualComparisons.length === 3 &&
+        v.manualComparisons.every(
+          (c) =>
+            typeof c.model === "string" &&
+            c.model.length <= 100 &&
+            typeof c.text === "string" &&
+            c.text.length <= 50000,
+        ))) &&
+    typeof v.original === "string" &&
+    (v.mergeCandidate === undefined ||
+      (typeof v.mergeCandidate === "string" &&
+        v.mergeCandidate.length <= 50000)) &&
+    (v.draftUndo === undefined ||
+      (Array.isArray(v.draftUndo) &&
+        v.draftUndo.length <= 100 &&
+        v.draftUndo.every(
+          (t) => typeof t === "string" && t.length <= 50000,
+        ))) &&
+    (v.draftEditBase === undefined ||
+      (typeof v.draftEditBase === "string" &&
+        v.draftEditBase.length <= 50000)) &&
+    typeof v.draft === "string" &&
+    v.draft.length <= 50000 &&
+    Number.isSafeInteger(v.draftRevision) &&
+    v.draftRevision > 0 &&
+    ["待修改", "待确认", "已定稿"].includes(v.status) &&
+    Array.isArray(v.assetIds) &&
+    v.assetIds.every((id) => typeof id === "string") &&
+    Array.isArray(v.versions) &&
+    v.versions.length <= 100 &&
+    v.versions.every(version) &&
+    (!v.final || final(v.final)) &&
+    Array.isArray(v.finalHistory) &&
+    v.finalHistory.length <= 100 &&
+    v.finalHistory.every(final);
   return (
+    (s.title === undefined ||
+      (typeof s.title === "string" && s.title.length <= 200)) &&
+    (s.synopsis === undefined ||
+      (typeof s.synopsis === "string" && s.synopsis.length <= 5000)) &&
+    (s.sourceMode === undefined ||
+      ["blank", "imported"].includes(s.sourceMode)) &&
     (s.revisionInstructions === undefined ||
       (typeof s.revisionInstructions === "string" &&
         s.revisionInstructions.length <= 5000)) &&
@@ -282,51 +344,44 @@ export function validateScreenplay(x: unknown): x is Screenplay {
     Array.isArray(s.scenes) &&
     s.scenes.length <= 500 &&
     new Set(s.scenes.map((v) => v?.id)).size === s.scenes.length &&
-    s.scenes.every(
-      (v) =>
-        v &&
-        (v.undoTargetRevision === undefined ||
-          (Number.isSafeInteger(v.undoTargetRevision) &&
-            v.undoTargetRevision > 0)) &&
-        typeof v.id === "string" &&
-        typeof v.heading === "string" &&
-        (v.manualComparisons === undefined ||
-          (Array.isArray(v.manualComparisons) &&
-            v.manualComparisons.length === 3 &&
-            v.manualComparisons.every(
-              (c) =>
-                typeof c.model === "string" &&
-                c.model.length <= 100 &&
-                typeof c.text === "string" &&
-                c.text.length <= 50000,
-            ))) &&
-        typeof v.original === "string" &&
-        (v.mergeCandidate === undefined ||
-          (typeof v.mergeCandidate === "string" &&
-            v.mergeCandidate.length <= 50000)) &&
-        (v.draftUndo === undefined ||
-          (Array.isArray(v.draftUndo) &&
-            v.draftUndo.length <= 100 &&
-            v.draftUndo.every(
-              (t) => typeof t === "string" && t.length <= 50000,
-            ))) &&
-        (v.draftEditBase === undefined ||
-          (typeof v.draftEditBase === "string" &&
-            v.draftEditBase.length <= 50000)) &&
-        typeof v.draft === "string" &&
-        v.draft.length <= 50000 &&
-        Number.isSafeInteger(v.draftRevision) &&
-        v.draftRevision > 0 &&
-        ["待修改", "待确认", "已定稿"].includes(v.status) &&
-        Array.isArray(v.assetIds) &&
-        v.assetIds.every((id) => typeof id === "string") &&
-        Array.isArray(v.versions) &&
-        v.versions.length <= 100 &&
-        v.versions.every(version) &&
-        (!v.final || final(v.final)) &&
-        Array.isArray(v.finalHistory) &&
-        v.finalHistory.length <= 100 &&
-        v.finalHistory.every(final),
-    )
+    s.scenes.every(validScene) &&
+    (s.archivedScenes === undefined ||
+      (Array.isArray(s.archivedScenes) &&
+        s.archivedScenes.length <= 500 &&
+        s.archivedScenes.every(validScene) &&
+        new Set([...s.scenes, ...s.archivedScenes].map((v) => v.id)).size ===
+          s.scenes.length + s.archivedScenes.length)) &&
+    validChapters(s)
   );
+}
+
+function validChapters(s: Screenplay) {
+  if (s.chapters === undefined) return true;
+  if (!Array.isArray(s.chapters) || s.chapters.length > 500) return false;
+  const chapterIds = new Set<string>(),
+    sceneIds = new Set<string>(),
+    active = new Set(s.scenes.map((v) => v.id));
+  for (const c of s.chapters) {
+    if (
+      !c ||
+      typeof c.id !== "string" ||
+      !c.id ||
+      chapterIds.has(c.id) ||
+      typeof c.name !== "string" ||
+      !c.name.trim() ||
+      c.name.length > 200 ||
+      !Array.isArray(c.sceneIds) ||
+      (c.collapsed !== undefined && typeof c.collapsed !== "boolean") ||
+      (c.originalText !== undefined &&
+        (typeof c.originalText !== "string" || c.originalText.length > 200000))
+    )
+      return false;
+    chapterIds.add(c.id);
+    for (const id of c.sceneIds) {
+      if (typeof id !== "string" || !active.has(id) || sceneIds.has(id))
+        return false;
+      sceneIds.add(id);
+    }
+  }
+  return sceneIds.size === s.scenes.length;
 }

@@ -317,6 +317,12 @@ export default function MobileReader({
         )}
         {tab === "剧本" && (
           <>
+            {data.script?.title && (
+              <section className="panel">
+                <h2>{data.script.title}</h2>
+                <p>{data.script.synopsis}</p>
+              </section>
+            )}
             {data.script?.revisionInstructions && (
               <details className="panel">
                 <summary>统一修改要求（手动工作流）</summary>
@@ -343,6 +349,11 @@ export default function MobileReader({
               .map((s) => (
                 <article className="panel" key={s.id}>
                   <span className="tag">{s.status}</span>
+                  <p className="help">
+                    {data.script?.chapters?.find((c) =>
+                      c.sceneIds.includes(s.id),
+                    )?.name || "未分组场景"}
+                  </p>
                   <h2>{s.heading}</h2>
                   <h3>人工确认剧本</h3>
                   <pre className="reader-text">
