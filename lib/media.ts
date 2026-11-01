@@ -256,6 +256,12 @@ export function cloudMetadata(data: Studio): Studio {
       movement: s.movement,
       assets: [...s.assets],
       ...(s.image ? { image: s.image } : {}),
+      ...(s.sourceSceneId
+        ? {
+            sourceSceneId: s.sourceSceneId,
+            sourceFinalRevision: s.sourceFinalRevision,
+          }
+        : {}),
     })),
     tasks: data.tasks.map((t) => ({
       id: t.id,
@@ -286,6 +292,49 @@ export function cloudMetadata(data: Studio): Studio {
       ...(f.assetId ? { assetId: f.assetId } : {}),
       ...(f.shotId ? { shotId: f.shotId } : {}),
     }));
+  if (data.script)
+    result.script = {
+      original: {
+        text: data.script.original.text,
+        language: data.script.original.language,
+        at: data.script.original.at,
+      },
+      scenes: data.script.scenes.map((s) => ({
+        id: s.id,
+        heading: s.heading,
+        original: s.original,
+        draft: s.draft,
+        draftRevision: s.draftRevision,
+        ...(s.undoTargetRevision
+          ? { undoTargetRevision: s.undoTargetRevision }
+          : {}),
+        ...(s.mergeCandidate !== undefined
+          ? { mergeCandidate: s.mergeCandidate }
+          : {}),
+        status: s.status,
+        assetIds: [...s.assetIds],
+        versions: s.versions.map((v) => ({
+          id: v.id,
+          text: v.text,
+          model: v.model,
+          at: v.at,
+        })),
+        ...(s.final
+          ? {
+              final: {
+                text: s.final.text,
+                revision: s.final.revision,
+                at: s.final.at,
+              },
+            }
+          : {}),
+        finalHistory: s.finalHistory.map((v) => ({
+          text: v.text,
+          revision: v.revision,
+          at: v.at,
+        })),
+      })),
+    };
   assertCloudSafe(result);
   return result;
 }

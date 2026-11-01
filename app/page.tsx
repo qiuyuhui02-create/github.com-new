@@ -46,6 +46,8 @@ import {
 } from "@/lib/model";
 import { supabase } from "@/lib/supabase";
 import MediaLibrary from "@/components/media-library";
+import ScriptWorkbench from "@/components/script-workbench";
+import { shotNeedsReview } from "@/lib/screenplay";
 import {
   describeFile,
   bindMedia,
@@ -62,6 +64,7 @@ import {
   verifiedClient,
 } from "@/lib/cloud";
 const modules = [
+  { name: "剧本工作台", icon: Film },
   { name: "本地素材库", icon: Folder },
   { name: "今日计划", icon: CalendarDays },
   { name: "资产制作", icon: Box },
@@ -516,32 +519,48 @@ export default function StudioPage() {
                 <button
                   className="primary"
                   onClick={() =>
-                    page.startsWith("资产")
-                      ? setAsset(emptyAsset())
-                      : page.startsWith("分镜")
-                        ? newShot()
-                        : page === "Prompt 中心"
-                          ? setPrompt({
-                              id: uid(),
-                              title: "",
-                              category: "人物",
-                              content: "",
-                            })
-                          : page === "AI Agent"
-                            ? setReport(analyze(data))
-                            : document.getElementById("task-title")?.focus()
+                    page === "剧本工作台"
+                      ? document
+                          .querySelector<HTMLTextAreaElement>(
+                            '[aria-label="原始剧本导入"],[aria-label="场景修改稿"]',
+                          )
+                          ?.focus()
+                      : page === "本地素材库"
+                        ? document
+                            .querySelector<HTMLInputElement>(
+                              ".media-library input[type=file]",
+                            )
+                            ?.click()
+                        : page.startsWith("资产")
+                          ? setAsset(emptyAsset())
+                          : page.startsWith("分镜")
+                            ? newShot()
+                            : page === "Prompt 中心"
+                              ? setPrompt({
+                                  id: uid(),
+                                  title: "",
+                                  category: "人物",
+                                  content: "",
+                                })
+                              : page === "AI Agent"
+                                ? setReport(analyze(data))
+                                : document.getElementById("task-title")?.focus()
                   }
                 >
                   <Plus size={16} />
-                  {page.startsWith("资产")
-                    ? "新建资产"
-                    : page.startsWith("分镜")
-                      ? "新建分镜"
-                      : page === "Prompt 中心"
-                        ? "新建 Prompt"
-                        : page === "AI Agent"
-                          ? "检查项目"
-                          : "添加任务"}
+                  {page === "剧本工作台"
+                    ? "编辑剧本"
+                    : page === "本地素材库"
+                      ? "登记素材"
+                      : page.startsWith("资产")
+                        ? "新建资产"
+                        : page.startsWith("分镜")
+                          ? "新建分镜"
+                          : page === "Prompt 中心"
+                            ? "新建 Prompt"
+                            : page === "AI Agent"
+                              ? "检查项目"
+                              : "添加任务"}
                 </button>
               </div>
             </section>
@@ -556,6 +575,16 @@ export default function StudioPage() {
                 配置云端 <ArrowUpRight size={13} />
               </button>
             </div>
+            {page === "剧本工作台" && (
+              <ScriptWorkbench
+                key={userId || "demo"}
+                data={data}
+                onChange={(d) => {
+                  if (activeUser.current === userId) update(d);
+                }}
+                tell={tell}
+              />
+            )}
             {page === "本地素材库" && (
               <MediaLibrary
                 key={userId || "demo"}
@@ -923,6 +952,11 @@ export default function StudioPage() {
                           SEQUENCE {String(i + 1).padStart(2, "0")}
                         </span>
                         <h3>{s.title}</h3>
+                        {shotNeedsReview(s, data) && (
+                          <p className="shot-warning">
+                            来源剧本已变化，镜头可能需要更新（未自动覆盖）
+                          </p>
+                        )}
                         <p>
                           {s.size} / {s.camera} / {s.movement}
                         </p>
