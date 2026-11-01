@@ -90,3 +90,7 @@ CHROMIUM_PATH=/usr/bin/chromium npx playwright test
 5. 验证登录、RLS、上传和项目推拉后，再按需开启 AI。
 
 当前版本没有自动部署到 Vercel。
+
+## 剧本工作台
+
+[操作与限制说明](docs/SCREENPLAY.md)：中文/日文原稿保留、场景目录、修改稿与候选自动保存、逐行差异、逐句采用、版本恢复、人工逐场定稿，以及来源版本可追溯的分镜草稿。
