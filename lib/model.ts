@@ -1,3 +1,4 @@
+import { validateMedia, type LocalMedia } from "./media";
 export type Asset = {
   id: string;
   name: string;
@@ -11,6 +12,7 @@ export type Asset = {
   versions: { at: string; image: string; description: string; model: string }[];
 };
 export type Shot = {
+  image?: string;
   id: string;
   number: string;
   title: string;
@@ -34,6 +36,7 @@ export type Prompt = {
   content: string;
 };
 export type Studio = {
+  files?: LocalMedia[];
   assets: Asset[];
   shots: Shot[];
   tasks: Task[];
@@ -230,6 +233,7 @@ export function parseStudio(input: unknown): Studio {
     Array.isArray(x) && x.length <= 5000 && x.every((v) => obj(v) && p(v));
   if (
     !obj(input) ||
+    (input.files !== undefined && !validateMedia(input.files)) ||
     !arr(
       input.assets,
       (a) =>
@@ -255,6 +259,7 @@ export function parseStudio(input: unknown): Studio {
     !arr(
       input.shots,
       (s) =>
+        (s.image === undefined || str(s.image)) &&
         str(s.id) &&
         str(s.number) &&
         str(s.title) &&
