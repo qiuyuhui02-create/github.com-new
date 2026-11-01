@@ -1,4 +1,5 @@
 "use client";
+import GeminiRevision from "./gemini-revision";
 import type { ScriptScene } from "@/lib/screenplay";
 export default function ManualScriptCompare({
   scene,
@@ -39,11 +40,12 @@ export default function ManualScriptCompare({
     <section className="manual-compare">
       <div className="section-intro">
         <h3>三个 AI 修改结果 · 手动对比</h3>
-        <span className="tag">未连接 API · 零调用费用</span>
+        <span className="tag">手动始终可用 · 自动修改需个人访问码</span>
       </div>
       <p className="help">
         在其他工具中使用同一份原稿和修改要求，将结果粘贴到下方。采用的内容只进入人工候选，确认前不会改动最终剧本。
       </p>
+      <GeminiRevision scene={scene} patch={patch} tell={tell} />
       <div className="compare-grid">
         {slots.map((s, i) => (
           <article key={i}>

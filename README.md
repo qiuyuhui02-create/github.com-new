@@ -48,6 +48,10 @@ npm run typecheck
 
 自动化覆盖桌面与手机尺寸。真实 Safari、iPhone 和用户自己的七资产备份需部署后低风险验收。
 
+## 可选 Gemini 单场修改
+
+基于新版剧本工作台加入独立的 Gemini 建议与理由，支持四种修改方向，人工确认后才采用。默认关闭，需服务端 Secret、免费项目确认、个人访问码与免费共享计数库；手动三栏始终可用。配置及一次短场景测试见 [Gemini 指南](docs/GEMINI_SETUP.md)。不切换或回退收费模型。
+
 ## 保留的可选云端功能
 
 沿用已合并 PR #6/#7 的登录和 Supabase 手动同步。今晚无需登录，也不排查邮件配额；不需要修改数据库。旧配置说明仅供后续维护参考：[密码登录](docs/PASSWORD_LOGIN.md)、[邮箱回调](docs/AUTH_LOGIN_FIX.md)、[云端配置](docs/SUPABASE_SETUP.md)。
