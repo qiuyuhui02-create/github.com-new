@@ -87,3 +87,11 @@ test("legacy migration exports images plus restorable JSON, preserving IDs and s
   );
   clearMedia();
 });
+test("in-flight file verification cannot rebind files after account changes", async () => {
+  const file = new File(["abc"], "file.png");
+  const meta = await describeFile(file, "人物", { relativePath: "file.png" });
+  const pending = inspectDirectory([meta], [file]);
+  clearMedia();
+  await pending;
+  assert.equal(mediaStatus(meta.id), "未连接");
+});

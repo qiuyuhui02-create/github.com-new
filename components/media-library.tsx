@@ -236,6 +236,7 @@ export default function MediaLibrary({
                   if (!response.ok) throw Error("旧云端图片下载失败");
                   return response.blob();
                 });
+                if (!live.current) return;
                 downloadBlob(
                   new Blob([new Uint8Array(result.zip)], {
                     type: "application/zip",

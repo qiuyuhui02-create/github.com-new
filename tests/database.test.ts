@@ -36,6 +36,18 @@ test("Postgres migration, RLS for two users, storage boundaries and atomic saves
         "utf8",
       ),
     );
+    await db.exec(
+      await readFile(
+        new URL("../supabase/ai-quota.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      await readFile(
+        new URL("../supabase/ai-quota.sql", import.meta.url),
+        "utf8",
+      ),
+    );
     // Deliberately add unsafe permissive policies: restrictive guards still enforce ownership.
     await db.exec(`create policy "legacy unsafe projects" on public.studio_projects for all to authenticated using(true) with check(true);
  create policy "legacy unsafe objects" on storage.objects for all to authenticated,anon using(true) with check(true);
@@ -149,6 +161,25 @@ test("Postgres migration, RLS for two users, storage boundaries and atomic saves
         ])
       ).rows.length,
       1,
+    );
+    for (let n = 1; n <= 5; n++) {
+      const result = await db.query<{ used: number }>(
+        "select public.consume_studio_ai_quota() as used",
+      );
+      assert.equal(Number(result.rows[0].used), n);
+    }
+    await assert.rejects(
+      db.query("select public.consume_studio_ai_quota()"),
+      /Daily quota exhausted/,
+    );
+    await assert.rejects(
+      db.query("update public.studio_ai_usage set requests=0"),
+      /permission denied/,
+    );
+    await asUser(bob);
+    assert.equal(
+      (await db.query("select * from public.studio_ai_usage")).rows.length,
+      0,
     );
     await db.exec("reset role;set role anon;");
     await assert.rejects(

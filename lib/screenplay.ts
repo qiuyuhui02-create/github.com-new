@@ -4,6 +4,9 @@ export type ScriptVersion = {
   id: string;
   text: string;
   model: string;
+  inputHash?: string;
+  sourceRevision?: number;
+  requestId?: string;
   at: string;
 };
 export type FinalScene = { text: string; revision: number; at: string };
@@ -17,6 +20,7 @@ export type ScriptScene = {
   status: "待修改" | "待确认" | "已定稿";
   assetIds: string[];
   versions: ScriptVersion[];
+  variants?: ScriptVersion[];
   final?: FinalScene;
   finalHistory: FinalScene[];
   undoTargetRevision?: number;
@@ -205,11 +209,17 @@ export function validateScreenplay(x: unknown): x is Screenplay {
     v &&
     typeof v.id === "string" &&
     typeof v.text === "string" &&
+    v.text.length <= 50000 &&
     typeof v.model === "string" &&
-    Number.isFinite(Date.parse(v.at));
+    Number.isFinite(Date.parse(v.at)) &&
+    (v.inputHash === undefined || /^[a-f0-9]{64}$/.test(v.inputHash)) &&
+    (v.sourceRevision === undefined ||
+      (Number.isSafeInteger(v.sourceRevision) && v.sourceRevision > 0)) &&
+    (v.requestId === undefined || typeof v.requestId === "string");
   const final = (v: FinalScene) =>
     v &&
     typeof v.text === "string" &&
+    v.text.length <= 50000 &&
     Number.isSafeInteger(v.revision) &&
     v.revision > 0 &&
     Number.isFinite(Date.parse(v.at));
@@ -244,6 +254,10 @@ export function validateScreenplay(x: unknown): x is Screenplay {
         Array.isArray(v.versions) &&
         v.versions.length <= 100 &&
         v.versions.every(version) &&
+        (v.variants === undefined ||
+          (Array.isArray(v.variants) &&
+            v.variants.length <= 30 &&
+            v.variants.every(version))) &&
         (!v.final || final(v.final)) &&
         Array.isArray(v.finalHistory) &&
         v.finalHistory.length <= 100 &&

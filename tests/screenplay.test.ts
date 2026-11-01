@@ -65,3 +65,24 @@ test("scene draft generation rejects unconfirmed and duplicate versions; cloud r
   assert.ok(lineDiff("旧句", "新句")[0].changed);
   assert.deepEqual(sentences("你好。再见！"), ["你好。", "再见！"]);
 });
+test("saved model variants roundtrip with input provenance and cannot replace an independent human final", () => {
+  const script = importScreenplay("内景 试验室\n对白。", "中文");
+  script.scenes[0] = confirmScene(script.scenes[0], "人工定稿");
+  script.scenes[0].variants = [
+    {
+      id: "v1",
+      model: "gemini / test",
+      text: "模型建议",
+      at: new Date().toISOString(),
+      inputHash: "a".repeat(64),
+      sourceRevision: 1,
+      requestId: "request1",
+    },
+  ];
+  const restored = parseStudio(cloudMetadata({ ...seed, script }));
+  assert.deepEqual(
+    restored.script?.scenes[0].variants,
+    script.scenes[0].variants,
+  );
+  assert.equal(restored.script?.scenes[0].final?.text, "人工定稿");
+});

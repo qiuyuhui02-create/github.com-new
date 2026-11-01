@@ -111,6 +111,7 @@ export default function StudioPage() {
     [priority, setPriority] = useState("高"),
     [taskDate, setTaskDate] = useState(today()),
     [cloudAt, setCloudAt] = useState("");
+  const [localSaved, setLocalSaved] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [cloudVersion, setCloudVersion] = useState(0);
   const [cloudVerified, setCloudVerified] = useState(false);
@@ -167,7 +168,9 @@ export default function StudioPage() {
         cacheKey(userId),
         JSON.stringify(userId ? { data, version: cloudVersion } : data),
       );
+      setLocalSaved(true);
     } catch {
+      setLocalSaved(false);
       setNotice("本地空间不足，本次更改未保存。请导出项目并压缩图片。");
     }
   }, [data, ready, userId, cloudVersion]);
@@ -291,6 +294,7 @@ export default function StudioPage() {
       } else {
         const result = await loadCloud(db, owner);
         if (accountEpoch.current !== epoch) return;
+        clearMedia();
         setData(result?.data || emptyStudio());
         setCloudVersion(result?.version || 0);
         setCloudAt(result?.at || "");
@@ -476,7 +480,11 @@ export default function StudioPage() {
             <div>
               <span className="save-state">
                 <i />
-                {ready ? "本地自动保存" : "正在载入"}
+                {ready
+                  ? localSaved
+                    ? "本地自动保存"
+                    : "本地保存失败，请导出备份"
+                  : "正在载入"}
               </span>
               <button
                 className="icon-button"
@@ -1714,6 +1722,7 @@ export default function StudioPage() {
                           throw Error("文件超过 20MB");
                         const d = parseStudio(JSON.parse(await f.text()));
                         if (confirm("导入将替换当前本地项目，是否继续？")) {
+                          clearMedia();
                           setData(d);
                           setCloudAt("");
                           tell("已导入项目");
@@ -1728,6 +1737,7 @@ export default function StudioPage() {
                   className="danger text-button"
                   onClick={() => {
                     if (confirm("恢复示例数据将覆盖当前项目，是否继续？")) {
+                      clearMedia();
                       setData(structuredClone(seed));
                       setCloudAt("");
                       tell("已恢复示例项目");

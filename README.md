@@ -94,3 +94,7 @@ CHROMIUM_PATH=/usr/bin/chromium npx playwright test
 ## 剧本工作台
 
 [操作与限制说明](docs/SCREENPLAY.md)：中文/日文原稿保留、场景目录、修改稿与候选自动保存、逐行差异、逐句采用、版本恢复、人工逐场定稿，以及来源版本可追溯的分镜草稿。
+
+## 可选多 AI 对比
+
+[配置与费用边界](docs/MULTI_AI.md)：Gemini 免费层、OpenRouter `:free`、符合资格的豆包试用，全部默认关闭。未连接不生成假回复；多模型同稿对比、人工采用、定稿隔离；可选 `supabase/ai-quota.sql` 提供每日 5 次的数据库原子配额。

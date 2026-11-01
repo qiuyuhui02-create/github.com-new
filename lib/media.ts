@@ -120,6 +120,8 @@ const bound = new Map<
 const statuses = new Map<string, MediaStatus>();
 const listeners = new Set<() => void>();
 let generation = 0;
+let scopeToken = 0;
+export const mediaScope = () => scopeToken;
 function notify() {
   generation++;
   listeners.forEach((f) => f());
@@ -135,7 +137,13 @@ export const mediaStatus = (id: string): MediaStatus =>
   statuses.get(id) || bound.get(id)?.status || "未连接";
 export const mediaURL = (id: string) => bound.get(id)?.url || "";
 export const mediaFile = (id: string) => bound.get(id)?.file;
-export function bindMedia(id: string, file: File, verified = false) {
+export function bindMedia(
+  id: string,
+  file: File,
+  verified = false,
+  scope = scopeToken,
+) {
+  if (scope !== scopeToken) return false;
   const old = bound.get(id);
   if (old) URL.revokeObjectURL(old.url);
   bound.set(id, {
@@ -145,8 +153,10 @@ export function bindMedia(id: string, file: File, verified = false) {
   });
   statuses.delete(id);
   notify();
+  return true;
 }
 export function clearMedia() {
+  scopeToken++;
   bound.forEach((v) => URL.revokeObjectURL(v.url));
   bound.clear();
   statuses.clear();
@@ -154,13 +164,17 @@ export function clearMedia() {
 }
 export function directoryPath(file: File) {
   const path = file.webkitRelativePath;
-  return path ? path.split("/").slice(1).join("/") : file.name;
+  return (path ? path.split("/").slice(1).join("/") : file.name).normalize(
+    "NFC",
+  );
 }
 export async function inspectDirectory(manifest: LocalMedia[], files: File[]) {
+  const scope = scopeToken;
   const byPath = new Map(files.map((f) => [directoryPath(f), f]));
   let found = 0;
   for (const entry of manifest) {
-    const f = byPath.get(entry.relativePath);
+    if (scope !== scopeToken) return 0;
+    const f = byPath.get(entry.relativePath.normalize("NFC"));
     const old = bound.get(entry.id);
     if (old) {
       URL.revokeObjectURL(old.url);
@@ -170,7 +184,9 @@ export async function inspectDirectory(manifest: LocalMedia[], files: File[]) {
       statuses.set(entry.id, "文件缺失");
       continue;
     }
-    if (f.size !== entry.size || (await checksum(f)) !== entry.sha256) {
+    const digest = f.size === entry.size ? await checksum(f) : "";
+    if (scope !== scopeToken) return 0;
+    if (f.size !== entry.size || digest !== entry.sha256) {
       statuses.set(entry.id, "内容不符");
       continue;
     }
@@ -181,11 +197,14 @@ export async function inspectDirectory(manifest: LocalMedia[], files: File[]) {
   return found;
 }
 export async function relinkMedia(entry: LocalMedia, file: File, path: string) {
+  const scope = scopeToken;
   if (!safeRelative(path)) throw Error("请输入相对路径，不要输入 Mac 绝对路径");
   if (file.size !== entry.size || (await checksum(file)) !== entry.sha256)
     throw Error("文件校验不符。请作为新版本登记，不会替换旧素材。");
+  if (scope !== scopeToken)
+    throw Error("工作空间已变化，请在当前账号重新选择文件");
   bindMedia(entry.id, file);
-  return { ...entry, relativePath: path };
+  return { ...entry, relativePath: path.normalize("NFC") };
 }
 export function downloadBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -313,6 +332,21 @@ export function cloudMetadata(data: Studio): Studio {
           : {}),
         status: s.status,
         assetIds: [...s.assetIds],
+        ...(s.variants
+          ? {
+              variants: s.variants.map((v) => ({
+                id: v.id,
+                text: v.text,
+                model: v.model,
+                at: v.at,
+                ...(v.inputHash ? { inputHash: v.inputHash } : {}),
+                ...(v.sourceRevision
+                  ? { sourceRevision: v.sourceRevision }
+                  : {}),
+                ...(v.requestId ? { requestId: v.requestId } : {}),
+              })),
+            }
+          : {}),
         versions: s.versions.map((v) => ({
           id: v.id,
           text: v.text,
