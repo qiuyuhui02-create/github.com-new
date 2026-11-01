@@ -5,7 +5,8 @@ test("asset creation, filters, upload, versions and reload persistence", async (
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "资产总览." })).toBeVisible();
+  await page.getByRole("button", { name: "资产库", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "资产库." })).toBeVisible();
   await expect(page.locator(".asset-card")).toHaveCount(6);
   await page.getByRole("button", { name: "新建资产", exact: true }).click();
   await page.getByLabel("资产名称", { exact: true }).fill("测试飞船");
@@ -22,9 +23,11 @@ test("asset creation, filters, upload, versions and reload persistence", async (
   await page.getByRole("button", { name: "保存资产", exact: true }).click();
   await expect(page.locator(".asset-card")).toHaveCount(7);
   await page.reload();
+  await page.getByRole("button", { name: "资产库", exact: true }).click();
   await expect(page.locator(".asset-card")).toHaveCount(7);
   await page.getByPlaceholder("搜索资产名称、描述或标签…").fill("测试飞船");
   await expect(page.locator(".asset-card")).toHaveCount(1);
+  await expect(page.locator(".asset-card img")).toBeVisible();
   await page.locator(".asset-card").click();
   await page.getByLabel("视觉设定与描述").fill("金色的新版本飞船");
   await page.getByRole("button", { name: "保存资产", exact: true }).click();
@@ -39,23 +42,25 @@ test("shots, tasks, prompt library and free agent analysis", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "分镜制作", exact: true }).click();
+  await page.getByRole("button", { name: "资产库", exact: true }).click();
+  await page.getByRole("button", { name: "分镜工作台", exact: true }).click();
   await page.getByRole("button", { name: "新建分镜", exact: true }).click();
   await page.getByLabel("镜头名称").fill("记忆重现");
   await page.getByLabel("时长（秒）").fill("8");
   await page.getByLabel("林 · 城市漫游者").check();
   await page.getByRole("button", { name: "保存分镜", exact: true }).click();
   await expect(page.locator(".shot-card")).toHaveCount(4);
-  await page.getByRole("button", { name: "分镜总览", exact: true }).click();
+  await page.getByRole("button", { name: "分镜工作台", exact: true }).click();
   await expect(page.locator(".timeline-track button")).toHaveCount(4);
-  await page.getByRole("button", { name: "今日计划", exact: true }).click();
-  await page.getByPlaceholder("今天想完成什么？").fill("审核新增分镜");
+  await page.getByRole("button", { name: "创作日程", exact: true }).click();
   await page
-    .locator(".task-form")
-    .getByRole("button", { name: "添加任务" })
+    .locator(".schedule-workbench")
+    .getByRole("button", { name: "添加任务", exact: true })
     .click();
+  await page.getByLabel("任务名称", { exact: true }).fill("审核新增分镜");
+  await page.getByRole("button", { name: "保存任务", exact: true }).click();
   await page.getByLabel("完成 审核新增分镜").check();
-  await expect(page.locator(".task-row.done")).toHaveCount(2);
+  await expect(page.locator(".schedule-task.done")).toHaveCount(2);
   await page.getByRole("button", { name: "Prompt 中心", exact: true }).click();
   await page.getByRole("button", { name: "新建 Prompt", exact: true }).click();
   await page.getByLabel("标题", { exact: true }).fill("测试电影提示词");
@@ -71,19 +76,20 @@ test("shots, tasks, prompt library and free agent analysis", async ({
   await page.getByRole("button", { name: "Prompt 中心", exact: true }).click();
   await expect(page.locator(".prompt-card")).toHaveCount(4);
 });
-test("mobile layout fits viewport and modal closes using Escape", async ({
+test("mobile defaults to read-only snapshot view and fits viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.locator(".asset-card")).toHaveCount(6);
+  await expect(page.getByText("只读查看", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
-  await page.getByRole("button", { name: "新建资产", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "资产", exact: true }).click();
+  await expect(page.locator(".reader-asset")).toHaveCount(6);
+  await expect(
+    page.getByRole("button", { name: "新建资产", exact: true }),
+  ).toHaveCount(0);
 });
 test("paid endpoint stays disabled without configuration", async ({
   request,

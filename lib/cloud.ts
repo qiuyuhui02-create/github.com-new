@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseConfig } from "../utils/supabase/config";
 import { parseStudio, type Studio } from "./model";
+import { cloudMetadata } from "./media";
 export const emptyStudio = (): Studio => ({
   assets: [],
   shots: [],
@@ -46,7 +47,7 @@ export async function saveCloud(
   data: Studio,
   version: number,
 ) {
-  const valid = parseStudio(data);
+  const valid = cloudMetadata(parseStudio(data));
   const { data: row, error } = await client.rpc("save_studio_project", {
     project_data: valid,
     expected_version: version,
@@ -57,57 +58,6 @@ export async function saveCloud(
     throw Error("云端返回无效的项目版本");
   return { version: Number(result.version), at: String(result.updated_at) };
 }
-// Preserve IDs/links and migrate embedded backup images, including version history.
-export async function migrateImages(
-  client: SupabaseClient,
-  input: Studio,
-  userId: string,
-): Promise<Studio> {
-  const data = structuredClone(parseStudio(input));
-  const mapped = new Map<string, string>();
-  async function image(src: string): Promise<string> {
-    if (!src || src.startsWith("/art/")) return src;
-    if (src.startsWith("storage:")) {
-      if (!src.slice(8).startsWith(`${userId}/`))
-        throw Error(
-          "备份引用了其他账号的私有素材，请用原账号导出图片后重新上传。",
-        );
-      return src;
-    }
-    if (mapped.has(src)) return mapped.get(src)!;
-    const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(
-      src,
-    );
-    if (!match)
-      throw Error("备份含不支持的图片，请使用 JPG、PNG 或 WebP 重新上传。");
-    if (match[2].length > Math.ceil((5 * 1024 * 1024 * 4) / 3) + 4)
-      throw Error("备份图片超过 5MB");
-    let raw: string;
-    try {
-      raw = atob(match[2]);
-    } catch {
-      throw Error("备份图片内容无效");
-    }
-    const bytes = Uint8Array.from(raw, (c) => c.charCodeAt(0));
-    if (bytes.length > 5 * 1024 * 1024) throw Error("备份图片超过 5MB");
-    const path = `${userId}/${crypto.randomUUID()}.${match[1]}`;
-    const { error } = await client.storage
-      .from("assets")
-      .upload(path, bytes, { contentType: `image/${match[1]}`, upsert: false });
-    if (error) throw cloudError(error);
-    const value = `storage:${path}`;
-    mapped.set(src, value);
-    return value;
-  }
-  for (const asset of data.assets) {
-    asset.image = await image(asset.image);
-    asset.references = await Promise.all(asset.references.map(image));
-    for (const version of asset.versions)
-      version.image = await image(version.image);
-  }
-  return data;
-}
-
 // Pin each operation to one verified token; account changes cannot retarget a request.
 export async function verifiedClient(base: SupabaseClient, owner: string) {
   const {

@@ -1,7 +1,21 @@
+import {
+  validProjectMeta,
+  validSnapshotMeta,
+  type ProjectMeta,
+  type SnapshotMeta,
+} from "./snapshots";
+import {
+  validateWorkflow,
+  type Journal,
+  type TimerLedger,
+  type VideoJob,
+} from "./workflow";
+import { validateScreenplay, type Screenplay } from "./screenplay";
+import { validateMedia, type LocalMedia } from "./media";
 export type Asset = {
   id: string;
   name: string;
-  type: "人物" | "场景" | "道具";
+  type: "人物" | "场景" | "道具" | "服装" | "其他";
   status: "待制作" | "制作中" | "已完成";
   description: string;
   model: string;
@@ -11,6 +25,9 @@ export type Asset = {
   versions: { at: string; image: string; description: string; model: string }[];
 };
 export type Shot = {
+  image?: string;
+  sourceSceneId?: string;
+  sourceFinalRevision?: number;
   id: string;
   number: string;
   title: string;
@@ -19,6 +36,11 @@ export type Shot = {
   camera: string;
   movement: string;
   assets: string[];
+  composition?: string;
+  description?: string;
+  dialogue?: string;
+  sound?: string;
+  status?: string;
 };
 export type Task = {
   id: string;
@@ -26,6 +48,11 @@ export type Task = {
   priority: string;
   date: string;
   done: boolean;
+  time?: string;
+  location?: string;
+  category?: string;
+  status?: string;
+  notes?: string;
 };
 export type Prompt = {
   id: string;
@@ -34,6 +61,16 @@ export type Prompt = {
   content: string;
 };
 export type Studio = {
+  meta?: ProjectMeta;
+  snapshot?: SnapshotMeta;
+  projectName?: string;
+  deadline?: string;
+  journals?: Journal[];
+  timer?: TimerLedger;
+  videoJobs?: VideoJob[];
+  previews?: Record<string, string>;
+  files?: LocalMedia[];
+  script?: Screenplay;
   assets: Asset[];
   shots: Shot[];
   tasks: Task[];
@@ -230,12 +267,17 @@ export function parseStudio(input: unknown): Studio {
     Array.isArray(x) && x.length <= 5000 && x.every((v) => obj(v) && p(v));
   if (
     !obj(input) ||
+    !validateWorkflow(input) ||
+    (input.meta !== undefined && !validProjectMeta(input.meta)) ||
+    (input.snapshot !== undefined && !validSnapshotMeta(input.snapshot)) ||
+    (input.script !== undefined && !validateScreenplay(input.script)) ||
+    (input.files !== undefined && !validateMedia(input.files)) ||
     !arr(
       input.assets,
       (a) =>
         str(a.id) &&
         str(a.name) &&
-        ["人物", "场景", "道具"].includes(String(a.type)) &&
+        ["人物", "场景", "道具", "服装", "其他"].includes(String(a.type)) &&
         ["待制作", "制作中", "已完成"].includes(String(a.status)) &&
         str(a.description) &&
         str(a.model) &&
@@ -255,6 +297,14 @@ export function parseStudio(input: unknown): Studio {
     !arr(
       input.shots,
       (s) =>
+        (s.image === undefined || str(s.image)) &&
+        (s.sourceSceneId === undefined || str(s.sourceSceneId)) &&
+        (s.sourceFinalRevision === undefined ||
+          (Number.isSafeInteger(s.sourceFinalRevision) &&
+            Number(s.sourceFinalRevision) > 0)) &&
+        [s.composition, s.description, s.dialogue, s.sound, s.status].every(
+          (v) => v === undefined || str(v),
+        ) &&
         str(s.id) &&
         str(s.number) &&
         str(s.title) &&
@@ -269,6 +319,9 @@ export function parseStudio(input: unknown): Studio {
     !arr(
       input.tasks,
       (t) =>
+        [t.time, t.location, t.category, t.status, t.notes].every(
+          (v) => v === undefined || str(v),
+        ) &&
         str(t.id) &&
         str(t.title) &&
         ["高", "中", "低"].includes(String(t.priority)) &&

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { seed } from "../../lib/model";
-test("mocked provider: login isolates demo, load/save all modules, import images, conflict, sign out", async ({
+test("mocked provider: login isolates demo, load/save all modules, import metadata, conflict, sign out", async ({
   page,
 }) => {
   const owner = "11111111-1111-4111-8111-111111111111";
@@ -70,6 +70,7 @@ test("mocked provider: login isolates demo, load/save all modules, import images
     return json({ message: `Unmocked provider path: ${path}` }, 500);
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "资产库", exact: true }).click();
   await expect(page.locator(".asset-card")).toHaveCount(6);
   await page
     .getByRole("button", { name: "项目与云端设置", exact: true })
@@ -100,20 +101,17 @@ test("mocked provider: login isolates demo, load/save all modules, import images
   expect(cloud.prompts).toHaveLength(2);
   const backup = structuredClone(seed);
   backup.assets[0].name = "备份角色";
-  backup.assets[0].image = "data:image/png;base64,aGVsbG8=";
   await page
     .locator(".upload-button")
-    .filter({ hasText: "导入 JSON 备份到云端" })
+    .filter({ hasText: "导入 JSON 元数据到云端" })
     .locator("input")
     .setInputFiles({
       name: "backup.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(backup)),
     });
-  await expect(page.locator(".toast")).toContainText("已保存到云端");
   await expect.poll(() => version).toBe(5);
-  expect(uploads).toBe(1);
-  expect(cloud.assets[0].image).toMatch(/^storage:/);
+  expect(uploads).toBe(0);
   expect(cloud.assets[0].name).toBe("备份角色");
   forceConflict = true;
   await page.getByRole("button", { name: "推送到云端", exact: true }).click();
