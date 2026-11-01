@@ -25,6 +25,7 @@ test("management with disconnected media keeps seven assets, versions, links and
     project,
   );
   await page.goto("/");
+  await page.getByRole("button", { name: "资产库", exact: true }).click();
   await expect(page.locator(".asset-card")).toHaveCount(7);
   await expect(page.locator(".asset-card").last()).toContainText("素材未连接");
   await page.locator(".asset-card").last().click();
@@ -32,12 +33,15 @@ test("management with disconnected media keeps seven assets, versions, links and
     .getByLabel("视觉设定与描述")
     .fill("Mac 管理端修改文字，无需素材盘");
   await page.getByRole("button", { name: "保存资产", exact: true }).click();
-  await page.getByRole("button", { name: "今日计划", exact: true }).click();
-  await page.getByPlaceholder("今天想完成什么？").fill("等待 Windows 生成镜头");
+  await page.getByRole("button", { name: "创作日程", exact: true }).click();
   await page
-    .locator(".task-form")
-    .getByRole("button", { name: "添加任务" })
+    .locator(".schedule-workbench")
+    .getByRole("button", { name: "添加任务", exact: true })
     .click();
+  await page
+    .getByLabel("任务名称", { exact: true })
+    .fill("等待 Windows 生成镜头");
+  await page.getByRole("button", { name: "保存任务", exact: true }).click();
   await page.getByRole("button", { name: "Prompt 中心", exact: true }).click();
   await page.getByRole("button", { name: "新建 Prompt", exact: true }).click();
   await page.getByLabel("标题", { exact: true }).fill("跨设备 Prompt");
@@ -80,5 +84,7 @@ test("management with disconnected media keeps seven assets, versions, links and
   const file = await downloadPromise;
   const { readFile } = await import("node:fs/promises");
   const exported = JSON.parse(await readFile((await file.path())!, "utf8"));
+  expect(exported.snapshot.format).toBe("framework-studio-snapshot");
+  delete exported.snapshot;
   expect(exported).toEqual(saved);
 });

@@ -60,6 +60,9 @@ test.describe("password setup and login using Auth fixture", () => {
       await next.getByLabel("密码", { exact: true }).fill(password);
       await next.getByRole("button", { name: "密码登录", exact: true }).click();
       await expect(next).toHaveURL(/auth=success/);
+      await next
+        .getByRole("button", { name: "切换编辑工作台", exact: true })
+        .click();
       await next.getByRole("button", { name: "云端设置", exact: true }).click();
       await expect(next.getByText("已登录：owner@example.com")).toBeVisible();
       const keys = await next.evaluate(() => Object.keys(localStorage));

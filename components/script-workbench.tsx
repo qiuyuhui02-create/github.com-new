@@ -1,4 +1,5 @@
 "use client";
+import ManualScriptCompare from "./manual-script-compare";
 import { useState } from "react";
 import type { Studio } from "@/lib/model";
 import {
@@ -249,8 +250,9 @@ function SceneEditor({
       )}
       {tab === "修改与确认" && (
         <>
+          <ManualScriptCompare scene={scene} patch={patch} tell={tell} />
           <label className="script-label">
-            AI 修改工作区 / 人工编辑
+            人工修改工作区
             <textarea
               className="screenplay-text"
               maxLength={50000}

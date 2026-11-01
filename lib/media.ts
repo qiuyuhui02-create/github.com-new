@@ -199,7 +199,10 @@ export function downloadBlob(blob: Blob, name: string) {
   const a = document.createElement("a");
   a.href = url;
   a.download = name;
+  a.hidden = true;
+  document.body.append(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 export function assertCloudSafe(value: unknown) {
@@ -260,6 +263,11 @@ export function cloudMetadata(data: Studio): Studio {
       size: s.size,
       duration: s.duration,
       camera: s.camera,
+      ...Object.fromEntries(
+        (["composition", "description", "dialogue", "sound", "status"] as const)
+          .filter((k) => s[k] !== undefined)
+          .map((k) => [k, s[k]]),
+      ),
       movement: s.movement,
       assets: [...s.assets],
       ...(s.image ? { image: s.image } : {}),
@@ -276,6 +284,11 @@ export function cloudMetadata(data: Studio): Studio {
       priority: t.priority,
       date: t.date,
       done: t.done,
+      ...Object.fromEntries(
+        (["time", "location", "category", "status", "notes"] as const)
+          .filter((k) => t[k] !== undefined)
+          .map((k) => [k, t[k]]),
+      ),
     })),
     prompts: data.prompts.map((p) => ({
       id: p.id,
@@ -284,6 +297,11 @@ export function cloudMetadata(data: Studio): Studio {
       content: p.content,
     })),
   };
+  if (data.meta) result.meta = structuredClone(data.meta);
+  if (data.projectName !== undefined) result.projectName = data.projectName;
+  if (data.deadline !== undefined) result.deadline = data.deadline;
+  if (data.videoJobs) result.videoJobs = structuredClone(data.videoJobs);
+  // Journals, timer ledger and preview bytes stay private to the local browser / JSON backup.
   if (data.files)
     result.files = data.files.map((f) => ({
       id: f.id,
@@ -309,6 +327,14 @@ export function cloudMetadata(data: Studio): Studio {
       scenes: data.script.scenes.map((s) => ({
         id: s.id,
         heading: s.heading,
+        ...(s.manualComparisons
+          ? {
+              manualComparisons: s.manualComparisons.map((c) => ({
+                model: c.model,
+                text: c.text,
+              })),
+            }
+          : {}),
         original: s.original,
         draft: s.draft,
         draftRevision: s.draftRevision,

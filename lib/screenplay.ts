@@ -9,6 +9,7 @@ export type ScriptVersion = {
 export type FinalScene = { text: string; revision: number; at: string };
 export type ScriptScene = {
   id: string;
+  manualComparisons?: { model: string; text: string }[];
   heading: string;
   original: string;
   draft: string;
@@ -230,6 +231,16 @@ export function validateScreenplay(x: unknown): x is Screenplay {
             v.undoTargetRevision > 0)) &&
         typeof v.id === "string" &&
         typeof v.heading === "string" &&
+        (v.manualComparisons === undefined ||
+          (Array.isArray(v.manualComparisons) &&
+            v.manualComparisons.length === 3 &&
+            v.manualComparisons.every(
+              (c) =>
+                typeof c.model === "string" &&
+                c.model.length <= 100 &&
+                typeof c.text === "string" &&
+                c.text.length <= 50000,
+            ))) &&
         typeof v.original === "string" &&
         (v.mergeCandidate === undefined ||
           (typeof v.mergeCandidate === "string" &&

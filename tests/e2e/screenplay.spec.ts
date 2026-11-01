@@ -29,7 +29,7 @@ test("script original, draft autosave, partial confirmation, final history and s
   await expect(page.locator(".screenplay-text")).toContainText(
     "林：记忆还在。",
   );
-  await page.getByRole("button", { name: "分镜总览", exact: true }).click();
+  await page.getByRole("button", { name: "分镜工作台", exact: true }).click();
   await expect(page.locator(".shot-warning")).toHaveCount(1);
   await page.reload();
   await page.getByRole("button", { name: "剧本工作台", exact: true }).click();

@@ -70,6 +70,7 @@ test("mocked provider: login isolates demo, load/save all modules, import metada
     return json({ message: `Unmocked provider path: ${path}` }, 500);
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "资产库", exact: true }).click();
   await expect(page.locator(".asset-card")).toHaveCount(6);
   await page
     .getByRole("button", { name: "项目与云端设置", exact: true })
