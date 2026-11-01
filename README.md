@@ -2,6 +2,10 @@
 
 中文 AI 影视制作工作台。Next.js 16 / React 19 / TypeScript / Tailwind CSS 4，兼容 Vercel。
 
+## 邮箱登录修复与排查
+
+登录故障请先按 [邮箱登录修复指南](docs/AUTH_LOGIN_FIX.md) 核对邮件模板、PKCE/token_hash 与 Vercel 回调。提供独立 `/auth/login` 验证码入口和需人工确认的 token_hash 链接；不需要数据库 SQL 或删除任何数据。不要连续重发邮件。
+
 ## 快速预览（无需 API Key）
 
 需要 Node.js 20.9+（推荐 Node 22 或 24）。在本项目目录打开终端：

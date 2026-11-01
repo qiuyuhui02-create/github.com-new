@@ -45,6 +45,8 @@ import {
   parseStudio,
 } from "@/lib/model";
 import { supabase } from "@/lib/supabase";
+import EmailLogin from "@/components/auth/email-login";
+import { legacyFragmentReason } from "@/lib/auth/legacy";
 import {
   cacheKey,
   emptyStudio,
@@ -87,8 +89,6 @@ export default function StudioPage() {
     [shot, setShot] = useState<Shot | null>(null),
     [prompt, setPrompt] = useState<Prompt | null>(null),
     [settings, setSettings] = useState(false),
-    [email, setEmail] = useState(""),
-    [otp, setOtp] = useState(""),
     [user, setUser] = useState(""),
     [busy, setBusy] = useState(false),
     [report, setReport] = useState(""),
@@ -139,8 +139,17 @@ export default function StudioPage() {
     }
     let initialized = false;
     selectAccount(null, "");
-    if (new URLSearchParams(location.search).has("auth_error"))
-      setNotice("登录链接已过期或无法验证，请重新发送登录邮件。");
+    const fragmentError = legacyFragmentReason(location.hash);
+    if (fragmentError) {
+      location.replace(`/auth/login?reason=${fragmentError}`);
+    }
+    if (new URLSearchParams(location.search).has("auth_error")) {
+      setSettings(true);
+      setNotice(
+        "旧版登录回调未完成，请使用邮箱验证码。此提示不代表项目数据丢失。",
+      );
+      history.replaceState(null, "", "/");
+    }
     // Supabase emits INITIAL_SESSION. Do not run async Supabase calls inside this callback.
     const sub = supabase?.auth.onAuthStateChange((_event, session) =>
       selectAccount(session?.user.id || null, session?.user.email || ""),
@@ -293,28 +302,6 @@ export default function StudioPage() {
       if (direction === "push") tell("资产、分镜、任务和 Prompt 已保存到云端");
     } catch (e) {
       if (accountEpoch.current === epoch) tell((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function login(verify = false) {
-    if (!supabase) return tell("未配置 Supabase，请查看 README");
-    setBusy(true);
-    try {
-      const { error } = verify
-        ? await supabase.auth.verifyOtp({ email, token: otp, type: "email" })
-        : await supabase.auth.signInWithOtp({
-            email,
-            options: { emailRedirectTo: `${location.origin}/auth/callback` },
-          });
-      if (error) throw error;
-      tell(
-        verify
-          ? "登录成功"
-          : "登录邮件已发送，请点击邮件中的链接，或输入验证码",
-      );
-    } catch (e) {
-      tell((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -1545,7 +1532,7 @@ export default function StudioPage() {
                 <p>
                   {supabase
                     ? "已检测到配置，请登录后同步。"
-                    : "尚未配置。请按 README 设置环境变量，并运行 supabase/schema.sql。"}
+                    : "尚未配置。请检查 Vercel 的 Supabase URL 和 Publishable Key；修复登录不需要执行 SQL。"}
                 </p>
                 {user ? (
                   <>
@@ -1580,39 +1567,7 @@ export default function StudioPage() {
                     </small>
                   </>
                 ) : (
-                  <div className="editor-fields">
-                    <label>
-                      邮箱
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                      />
-                    </label>
-                    <button
-                      className="secondary"
-                      disabled={!supabase || busy || !email.includes("@")}
-                      onClick={() => login()}
-                    >
-                      发送登录邮件
-                    </button>
-                    <label>
-                      邮件验证码（可选）
-                      <input
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        placeholder="或直接点击邮件登录链接"
-                      />
-                    </label>
-                    <button
-                      className="secondary"
-                      disabled={!supabase || busy || !otp}
-                      onClick={() => login(true)}
-                    >
-                      验证并登录
-                    </button>
-                  </div>
+                  <EmailLogin onMessage={tell} />
                 )}
               </div>
               <div className="panel">

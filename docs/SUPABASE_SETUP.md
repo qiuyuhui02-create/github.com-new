@@ -46,10 +46,10 @@
    - `http://localhost:3000/auth/callback`（仅本地开发需要）
    - 如果使用 Vercel Preview，为需要测试的预览域名添加对应的 `/auth/callback`；不要随意允许不受控的域名。
 5. 保存设置。
-6. 默认可以通过邮件中的登录链接登录。如果希望也使用验证码，在 Email Templates 的 Magic Link 模板保留 `{{ .ConfirmationURL }}`，并加入验证码 `{{ .Token }}`。不要自行把登录链接改成普通网站首页。
+6. 推荐验证码登录：按 [登录修复指南](AUTH_LOGIN_FIX.md) 设置 `{{ .Token }}` 与 `token_hash` 确认链接。旧 `{{ .ConfirmationURL }}` 可能受 PKCE 浏览器限制或邮件预取影响；不要把链接改成普通首页。首次用户同时检查 Confirm signup 模板。
 7. 默认邮件服务有发送频率和收件人限制；若邮件无法发送，检查 Auth 日志、垃圾邮件和邮件服务限制。公开上线可按 Supabase 指引配置 SMTP。
 
-新实现采用 PKCE：登录链接最好在发起登录的同一浏览器打开。跨设备登录请在原浏览器输入邮件验证码。旧版本登录状态需要重新登录。
+登录修复同时兼容 PKCE code 与 token_hash。旧 PKCE 链接必须在发起登录的同一浏览器和域名打开；token_hash 通过确认页验证，邮箱验证码无需原 PKCE verifier。完整模板、限流与后台设置见 [登录修复指南](AUTH_LOGIN_FIX.md)。
 
 ## 5. 配置 Vercel 环境变量
 

@@ -29,7 +29,7 @@ test("mocked provider: login isolates demo, load/save all modules, import images
     version = 3,
     uploads = 0,
     forceConflict = false;
-  await page.route("https://*.supabase.co/**", async (route) => {
+  await page.route(/\/(auth|rest|storage)\/v1\//, async (route) => {
     const req = route.request(),
       path = new URL(req.url()).pathname;
     const json = (data: unknown, status = 200) =>
@@ -81,7 +81,7 @@ test("mocked provider: login isolates demo, load/save all modules, import images
   );
   await page.getByRole("button", { name: "发送登录邮件" }).click();
   await expect(page.locator(".toast")).toContainText("登录邮件已发送");
-  await page.getByLabel("邮件验证码（可选）").fill("123456");
+  await page.getByLabel("邮箱验证码").fill("123456");
   await page.getByRole("button", { name: "验证并登录" }).click();
   await expect(page.getByText(`已登录：${authUser.email}`)).toBeVisible();
   await expect(page.locator(".asset-card")).toHaveCount(0);
