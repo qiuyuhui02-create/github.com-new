@@ -319,6 +319,9 @@ export function cloudMetadata(data: Studio): Studio {
     }));
   if (data.script)
     result.script = {
+      ...(data.script.revisionInstructions !== undefined
+        ? { revisionInstructions: data.script.revisionInstructions }
+        : {}),
       original: {
         text: data.script.original.text,
         language: data.script.original.language,
@@ -338,6 +341,10 @@ export function cloudMetadata(data: Studio): Studio {
         original: s.original,
         draft: s.draft,
         draftRevision: s.draftRevision,
+        ...(s.draftUndo ? { draftUndo: [...s.draftUndo] } : {}),
+        ...(s.draftEditBase !== undefined
+          ? { draftEditBase: s.draftEditBase }
+          : {}),
         ...(s.undoTargetRevision
           ? { undoTargetRevision: s.undoTargetRevision }
           : {}),
@@ -350,6 +357,7 @@ export function cloudMetadata(data: Studio): Studio {
           id: v.id,
           text: v.text,
           model: v.model,
+          ...(v.kind ? { kind: v.kind } : {}),
           at: v.at,
         })),
         ...(s.final

@@ -29,6 +29,15 @@ export type ActiveTimer = Omit<TimeEntry, "durationMs"> & {
 };
 export type TimerLedger = { active?: ActiveTimer; entries: TimeEntry[] };
 export type VideoVersion = {
+  firstFrame?: string;
+  lastFrame?: string;
+  storyboardReference?: string;
+  characterReferences?: string;
+  references?: string;
+  assets?: string[];
+  duration?: number;
+  ratio?: string;
+  movement?: string;
   id: string;
   model: string;
   prompt: string;
@@ -43,6 +52,8 @@ export type VideoJob = {
   shotId: string;
   prompt: string;
   assets: string[];
+  storyboardReference?: string;
+  characterReferences?: string;
   firstFrame: string;
   lastFrame: string;
   references: string;
@@ -182,6 +193,9 @@ export function validateWorkflow(x: Record<string, unknown>) {
             "status",
             "notes",
           ].every((k) => typeof j[k] === "string") &&
+          [j.storyboardReference, j.characterReferences].every(
+            (v) => v === undefined || typeof v === "string",
+          ) &&
           Array.isArray(j.assets) &&
           j.assets.every((a: unknown) => typeof a === "string") &&
           Number.isFinite(j.duration) &&
@@ -202,6 +216,22 @@ export function validateWorkflow(x: Record<string, unknown>) {
                 v.notes,
                 v.at,
               ].every((s) => typeof s === "string") &&
+              [
+                v.firstFrame,
+                v.lastFrame,
+                v.storyboardReference,
+                v.characterReferences,
+                v.references,
+                v.ratio,
+                v.movement,
+              ].every((s) => s === undefined || typeof s === "string") &&
+              (v.assets === undefined ||
+                (Array.isArray(v.assets) &&
+                  v.assets.every((id) => typeof id === "string"))) &&
+              (v.duration === undefined ||
+                (Number.isFinite(v.duration) &&
+                  v.duration > 0 &&
+                  v.duration <= 600)) &&
               (!v.relativePath || safeVideoPath(v.relativePath)),
           ),
       ))

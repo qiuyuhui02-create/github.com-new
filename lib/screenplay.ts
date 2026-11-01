@@ -4,6 +4,7 @@ export type ScriptVersion = {
   id: string;
   text: string;
   model: string;
+  kind?: "draft" | "candidate";
   at: string;
 };
 export type FinalScene = { text: string; revision: number; at: string };
@@ -14,6 +15,8 @@ export type ScriptScene = {
   original: string;
   draft: string;
   draftRevision: number;
+  draftUndo?: string[];
+  draftEditBase?: string;
   mergeCandidate?: string;
   status: "待修改" | "待确认" | "已定稿";
   assetIds: string[];
@@ -23,6 +26,7 @@ export type ScriptScene = {
   undoTargetRevision?: number;
 };
 export type Screenplay = {
+  revisionInstructions?: string;
   original: { text: string; language: ScriptLanguage; at: string };
   scenes: ScriptScene[];
 };
@@ -88,24 +92,75 @@ export function editDraft(
             id: crypto.randomUUID(),
             text: scene.draft,
             model,
+            kind: "draft" as const,
             at: new Date().toISOString(),
           },
         ]
       : scene.versions;
   if (versions.length > 100)
     throw Error("版本达到 100 个，请先导出备份并拆分项目");
-  return {
+  const next: ScriptScene = {
     ...scene,
     draft: text,
-    draftRevision: scene.draftRevision + (scene.draft === text ? 0 : 1),
+    draftRevision: scene.draftRevision + (text === scene.draft ? 0 : 1),
     versions,
     status:
-      scene.draft === text
+      text === scene.draft
         ? scene.status
         : scene.final?.text === text
           ? "已定稿"
           : "待确认",
   };
+  if (checkpoint) {
+    const undo = [...(scene.draftUndo || [])];
+    if (
+      scene.draftEditBase !== undefined &&
+      scene.draftEditBase !== scene.draft
+    )
+      undo.push(scene.draftEditBase);
+    if (text !== scene.draft) undo.push(scene.draft);
+    if (undo.length > 100)
+      throw Error("撤销记录达到上限，请先导出备份并拆分项目");
+    if (undo.length || scene.draftUndo) next.draftUndo = undo;
+    delete next.draftEditBase;
+  } else if (text !== scene.draft)
+    next.draftEditBase = scene.draftEditBase ?? scene.draft;
+  return next;
+}
+export function appendCandidateToDraft(scene: ScriptScene, text: string) {
+  if (!text.trim()) throw Error("请先选择候选中的文字或段落");
+  const current = editDraft(scene, scene.draft, true);
+  return editDraft(
+    current,
+    current.draft + (current.draft ? "\n\n" : "") + text,
+    true,
+  );
+}
+export function undoWorkingDraft(scene: ScriptScene) {
+  const current = editDraft(scene, scene.draft, true),
+    undo = current.draftUndo;
+  const previous = undo?.length
+    ? undo.at(-1)
+    : [...current.versions]
+        .reverse()
+        .find(
+          (v) =>
+            v.text !== current.draft &&
+            (v.kind === "draft" ||
+              (!v.kind && ["人工修改", "原始剧本"].includes(v.model))),
+        )?.text;
+  if (previous === undefined) throw Error("没有可撤销的人工工作稿修改");
+  const restored = editDraft(current, previous, true);
+  restored.draftUndo = undo?.length ? undo.slice(0, -1) : [];
+  delete restored.draftEditBase;
+  return restored;
+}
+export function externalRevisionPrompt(
+  scene: ScriptScene,
+  instructions: string,
+  source: "original" | "draft" = "original",
+) {
+  return `请修改以下电影剧本的一个场景。保持原语言、场景和人物身份；候选仅供人工评审，不代表最终定稿。\n\n【统一修改要求】\n${instructions.trim() || "使对白自然、人物动机清晰、叙事节奏流畅，避免解释性台词。"}\n\n【场景】\n${scene.heading}\n\n【${source === "original" ? "原始剧本" : "人工工作稿"}】\n${source === "original" ? scene.original : scene.draft}\n\n请分别提供：1. 修改后的本场剧本；2. 简短修改说明。不要扩写其他场景。`;
 }
 export function sentences(text: string) {
   return text.match(/[^。！？.!?\n]+[。！？.!?]?|\n/g) || [];
@@ -207,6 +262,7 @@ export function validateScreenplay(x: unknown): x is Screenplay {
     typeof v.id === "string" &&
     typeof v.text === "string" &&
     typeof v.model === "string" &&
+    (v.kind === undefined || ["draft", "candidate"].includes(v.kind)) &&
     Number.isFinite(Date.parse(v.at));
   const final = (v: FinalScene) =>
     v &&
@@ -215,6 +271,9 @@ export function validateScreenplay(x: unknown): x is Screenplay {
     v.revision > 0 &&
     Number.isFinite(Date.parse(v.at));
   return (
+    (s.revisionInstructions === undefined ||
+      (typeof s.revisionInstructions === "string" &&
+        s.revisionInstructions.length <= 5000)) &&
     !!s.original &&
     typeof s.original.text === "string" &&
     s.original.text.length <= 200000 &&
@@ -245,6 +304,15 @@ export function validateScreenplay(x: unknown): x is Screenplay {
         (v.mergeCandidate === undefined ||
           (typeof v.mergeCandidate === "string" &&
             v.mergeCandidate.length <= 50000)) &&
+        (v.draftUndo === undefined ||
+          (Array.isArray(v.draftUndo) &&
+            v.draftUndo.length <= 100 &&
+            v.draftUndo.every(
+              (t) => typeof t === "string" && t.length <= 50000,
+            ))) &&
+        (v.draftEditBase === undefined ||
+          (typeof v.draftEditBase === "string" &&
+            v.draftEditBase.length <= 50000)) &&
         typeof v.draft === "string" &&
         v.draft.length <= 50000 &&
         Number.isSafeInteger(v.draftRevision) &&

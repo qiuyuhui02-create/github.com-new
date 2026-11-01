@@ -317,6 +317,14 @@ export default function MobileReader({
         )}
         {tab === "剧本" && (
           <>
+            {data.script?.revisionInstructions && (
+              <details className="panel">
+                <summary>统一修改要求（手动工作流）</summary>
+                <p className="reader-text">
+                  {data.script.revisionInstructions}
+                </p>
+              </details>
+            )}
             {!data.script && (
               <p className="empty">
                 快照尚未包含剧本，请先在 Mac 创作并重新导出。
@@ -459,6 +467,14 @@ export default function MobileReader({
                       <summary>首尾帧与参考素材</summary>
                       <p>首帧：{p.job.firstFrame || "未填写"}</p>
                       <p>尾帧：{p.job.lastFrame || "未填写"}</p>
+                      <p>
+                        分镜图：
+                        {p.job.storyboardReference ||
+                          "未登记，不自动使用分镜参考图"}
+                      </p>
+                      <p className="reader-text">
+                        人物图：{p.job.characterReferences || "未登记"}
+                      </p>
                       <p className="reader-text">{p.job.references}</p>
                       <p>
                         {p.job.assets

@@ -10,6 +10,7 @@ import {
   lineDiff,
   sentences,
   undoFinal,
+  undoWorkingDraft,
   type ScriptScene,
   type ScriptLanguage,
 } from "@/lib/screenplay";
@@ -18,7 +19,9 @@ export default function ScriptWorkbench({
   data,
   onChange,
   tell,
+  onCreateShot,
 }: {
+  onCreateShot: (sceneId: string) => void;
   data: Studio;
   onChange: (d: Partial<Studio>) => void;
   tell: (s: string) => void;
@@ -150,6 +153,10 @@ export default function ScriptWorkbench({
             <SceneEditor
               key={scene.id}
               scene={scene}
+              instructions={script.revisionInstructions || ""}
+              onInstructionsChange={(text) =>
+                onChange({ script: { ...script, revisionInstructions: text } })
+              }
               assets={data.assets}
               patch={patch}
               tell={tell}
@@ -159,6 +166,13 @@ export default function ScriptWorkbench({
               <p className="help">
                 基于已定稿内容按段落生成镜头草稿，景别与时长需人工审核。再次修改剧本只提示旧镜头可能过期，不覆盖已有分镜。
               </p>
+              <button
+                className="primary"
+                disabled={scene.status !== "已定稿"}
+                onClick={() => onCreateShot(scene.id)}
+              >
+                手动新建本场镜头
+              </button>
               <button
                 className="secondary"
                 disabled={scene.status !== "已定稿"}
@@ -184,7 +198,11 @@ function SceneEditor({
   assets,
   patch,
   tell,
+  instructions,
+  onInstructionsChange,
 }: {
+  instructions: string;
+  onInstructionsChange: (text: string) => void;
   scene: ScriptScene;
   assets: Studio["assets"];
   patch: (s: ScriptScene) => void;
@@ -250,7 +268,13 @@ function SceneEditor({
       )}
       {tab === "修改与确认" && (
         <>
-          <ManualScriptCompare scene={scene} patch={patch} tell={tell} />
+          <ManualScriptCompare
+            scene={scene}
+            patch={patch}
+            tell={tell}
+            instructions={instructions}
+            onInstructionsChange={onInstructionsChange}
+          />
           <label className="script-label">
             人工修改工作区
             <textarea
@@ -286,13 +310,7 @@ function SceneEditor({
               className="secondary"
               onClick={() =>
                 action(() => {
-                  const versions = scene.versions;
-                  const previous =
-                    versions.at(-1)?.text === scene.draft
-                      ? versions.at(-2)
-                      : versions.at(-1);
-                  if (!previous) throw Error("没有可撤销的修改");
-                  patch(editDraft(scene, previous.text, true));
+                  patch(undoWorkingDraft(scene));
                   setAccepted([]);
                 })
               }
@@ -374,7 +392,7 @@ function SceneEditor({
       )}
       {tab === "版本历史" && (
         <>
-          <h3>工作稿历史</h3>
+          <h3>内容版本（人工工作稿与手动候选）</h3>
           {scene.versions.map((v, i) => (
             <article className="version-row" key={v.id}>
               <span>
