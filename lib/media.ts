@@ -112,7 +112,7 @@ export function validateMedia(input: unknown): input is LocalMedia[] {
   });
 }
 export type MediaStatus =
-  "未连接" | "本次已选择·待归档" | "已校验" | "文件缺失" | "内容不符";
+  "素材未连接" | "已选择·位置待核验" | "已校验" | "所选目录未找到" | "内容不符";
 const bound = new Map<
   string,
   { file: File; url: string; status: MediaStatus }
@@ -122,6 +122,8 @@ const listeners = new Set<() => void>();
 let generation = 0;
 let scopeToken = 0;
 export const mediaScope = () => scopeToken;
+let directoryConnected = false;
+export const isMediaLibraryConnected = () => directoryConnected;
 function notify() {
   generation++;
   listeners.forEach((f) => f());
@@ -134,7 +136,7 @@ export const subscribeMedia = (listener: () => void) => {
 };
 export const mediaSnapshot = () => generation;
 export const mediaStatus = (id: string): MediaStatus =>
-  statuses.get(id) || bound.get(id)?.status || "未连接";
+  statuses.get(id) || bound.get(id)?.status || "素材未连接";
 export const mediaURL = (id: string) => bound.get(id)?.url || "";
 export const mediaFile = (id: string) => bound.get(id)?.file;
 export function bindMedia(
@@ -149,7 +151,7 @@ export function bindMedia(
   bound.set(id, {
     file,
     url: URL.createObjectURL(file),
-    status: verified ? "已校验" : "本次已选择·待归档",
+    status: verified ? "已校验" : "已选择·位置待核验",
   });
   statuses.delete(id);
   notify();
@@ -157,6 +159,7 @@ export function bindMedia(
 }
 export function clearMedia() {
   scopeToken++;
+  directoryConnected = false;
   bound.forEach((v) => URL.revokeObjectURL(v.url));
   bound.clear();
   statuses.clear();
@@ -169,7 +172,9 @@ export function directoryPath(file: File) {
   );
 }
 export async function inspectDirectory(manifest: LocalMedia[], files: File[]) {
+  if (!files.length) return 0;
   const scope = scopeToken;
+  directoryConnected = true;
   const byPath = new Map(files.map((f) => [directoryPath(f), f]));
   let found = 0;
   for (const entry of manifest) {
@@ -181,7 +186,7 @@ export async function inspectDirectory(manifest: LocalMedia[], files: File[]) {
       bound.delete(entry.id);
     }
     if (!f) {
-      statuses.set(entry.id, "文件缺失");
+      statuses.set(entry.id, "所选目录未找到");
       continue;
     }
     const digest = f.size === entry.size ? await checksum(f) : "";
@@ -198,7 +203,7 @@ export async function inspectDirectory(manifest: LocalMedia[], files: File[]) {
 }
 export async function relinkMedia(entry: LocalMedia, file: File, path: string) {
   const scope = scopeToken;
-  if (!safeRelative(path)) throw Error("请输入相对路径，不要输入 Mac 绝对路径");
+  if (!safeRelative(path)) throw Error("请输入相对路径，不要输入 设备绝对路径");
   if (file.size !== entry.size || (await checksum(file)) !== entry.sha256)
     throw Error("文件校验不符。请作为新版本登记，不会替换旧素材。");
   if (scope !== scopeToken)
@@ -243,7 +248,7 @@ export function assertCloudSafe(value: unknown) {
   }
   walk(value);
   if (new TextEncoder().encode(JSON.stringify(value)).length > 2 * 1024 * 1024)
-    throw Error("云端元数据超过 2MB，请拆分项目；大文件应保存在 Mac。");
+    throw Error("云端元数据超过 2MB，请拆分项目；大文件应保存在本地 SSD。");
 }
 // Strict allowlist prevents accidental persistence of browser handles or binary fields.
 export function cloudMetadata(data: Studio): Studio {
@@ -371,4 +376,44 @@ export function cloudMetadata(data: Studio): Studio {
     };
   assertCloudSafe(result);
   return result;
+}
+
+// Plan metadata additions only. Never move files or modify existing IDs/relationships.
+export async function indexDirectoryFiles(
+  manifest: LocalMedia[],
+  selected: File[],
+  kind: MediaKind,
+  options: Partial<
+    Pick<LocalMedia, "assetId" | "shotId" | "previousId" | "version">
+  > = {},
+) {
+  if (options.previousId && selected.length !== 1)
+    throw Error("登记新版本时请只选择一个文件");
+  const files = [...manifest],
+    added: LocalMedia[] = [],
+    bindings: { id: string; file: File }[] = [];
+  for (const file of selected) {
+    if (!file.webkitRelativePath)
+      throw Error("请通过项目根目录选择文件，以读取真实相对路径");
+    const relativePath = directoryPath(file);
+    const entry = await describeFile(file, kind, { ...options, relativePath });
+    const existing = files.filter(
+      (f) => f.relativePath.normalize("NFC") === relativePath,
+    );
+    const same = existing.find(
+      (f) => f.sha256 === entry.sha256 && f.size === entry.size,
+    );
+    if (same) {
+      bindings.push({ id: same.id, file });
+      continue;
+    }
+    if (existing.length)
+      throw Error(
+        `所选路径已有不同内容：${relativePath}。请在 SSD 另存版本后登记，不会改写现有索引。`,
+      );
+    files.push(entry);
+    added.push(entry);
+    bindings.push({ id: entry.id, file });
+  }
+  return { files, added, bindings };
 }

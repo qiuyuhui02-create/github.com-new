@@ -2435,3 +2435,22 @@ footer em {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+.directory-registration {
+  margin: 20px 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+.directory-registration select {
+  font-size: 12px;
+  min-width: 0;
+}
+.directory-registration option {
+  padding: 6px;
+}
+.directory-registration .primary {
+  justify-self: start;
+}

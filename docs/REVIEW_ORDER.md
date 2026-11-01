@@ -1,6 +1,6 @@
 # 分阶段审阅、预览与上线
 
-本轮没有修改 main，没有执行线上 SQL，没有删除 Supabase 或 Mac 素材，没有执行真实模型调用。
+本轮没有修改 main，没有执行线上 SQL，没有删除 Supabase 数据或 SSD 素材，没有执行真实模型调用。
 
 三个分支串联，后一个包含前一个的代码：
 
@@ -20,11 +20,11 @@
 
 ## 数据库与上线
 
-- 已有数据库：保留 `schema.sql` 和现有 RLS，追加执行 `supabase/hybrid-storage.sql`。只拦截新写入，不改写/删除旧记录。
+- 本次不执行 SQL 或修改生产数据库。`hybrid-storage.sql` 暂缓，先备份与检查既有资产，确认旧 Base64 迁移和新版读写后，再单独安排。现有 schema.sql 与 RLS 保留。
 - 只有要启用多模型对比时才执行 `supabase/ai-quota.sql`；未执行时新模型接口拒绝调用。
 - 模型 Key 留空、开关 false 即可上线手工工作流。无需付费订阅。
 - 升级前按 [本地素材指南](LOCAL_MEDIA.md) 导出原 JSON 并保留原件。上线后不要再使用旧版可写部署上传新媒体。
-- 真实 macOS Safari 和 Supabase 仍需手动验收：选择文件夹/逐文件定位、关闭刷新后重连、移动目录核验、双账号隔离。自动化 Chromium 不能代替真实 Safari 的操作系统权限验收。
+- 真实 macOS Safari 和 Supabase 仍需手动验收：Mac 不连接素材时编辑文字；Windows 从 NTFS SSD 登记真实相对路径、刷新后重连，以及双账号隔离。自动化 Chromium 不能代替真实 Safari 的操作系统权限验收。
 
 ## 回退
 

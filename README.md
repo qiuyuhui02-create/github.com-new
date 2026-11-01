@@ -32,9 +32,9 @@ npm start
 
 ## 混合存储（当前版本）
 
-Mac 保存媒体原件，Supabase 只存轻量 JSON 元数据。Safari 采用用户选择文件/文件夹及下载归档流程，不自动写磁盘。新图片不再写入 Base64 或 Supabase Storage；旧数据保留可读。
+Windows（Chrome / Edge）在 NTFS 移动 SSD 保存媒体原件，Mac（Safari）只管理文字和工作流程，Supabase 同步文字、状态与资产索引。Windows 选择项目目录后可按真实相对路径登记；Mac 无需连接素材或取得 NTFS 写权限。新图片不写入 Base64 或 Supabase Storage；旧数据保留可读。
 
-请先阅读 [本地素材库与迁移指南](docs/LOCAL_MEDIA.md)。数据库升级在已有 schema.sql 之后运行 `supabase/hybrid-storage.sql`，不删除旧数据。
+请先阅读 [本地素材库与迁移指南](docs/LOCAL_MEDIA.md)。本次不执行 SQL 或修改生产数据库；`supabase/hybrid-storage.sql` 的后续执行时机与旧数据兼容风险见指南。
 
 ## 演示模式与云端边界
 
@@ -42,7 +42,7 @@ Mac 保存媒体原件，Supabase 只存轻量 JSON 元数据。Safari 采用用
 
 生成模型字段仅用于记录；本版本没有图像或视频生成 API，也不会执行模型调用。示例图片为插画。
 
-Supabase 已接入官方 `@supabase/ssr`：浏览器/服务端客户端、Next.js 16 `proxy.ts` 会话刷新、PKCE 登录回调、按账号分开的本地缓存。资产、分镜、任务和 Prompt 以用户专属 JSON 项目原子保存，带版本冲突检查。支持导入轻量 JSON 元数据，旧内嵌图片应先迁移到 Mac。
+Supabase 已接入官方 `@supabase/ssr`：浏览器/服务端客户端、Next.js 16 `proxy.ts` 会话刷新、PKCE 登录回调、按账号分开的本地缓存。资产、分镜、任务和 Prompt 以用户专属 JSON 项目原子保存，带版本冲突检查。支持导入轻量 JSON 元数据，旧内嵌图片可由用户主动迁移到 Windows 素材盘。
 
 **真实数据库尚未联调**：本次环境出站规则不允许目标 Supabase 域名。仓库提供可重复执行的 SQL 升级脚本、只读审计脚本和 PostgreSQL 双用户 RLS 自动化测试。请按下方操作完成真实项目配置。
 
