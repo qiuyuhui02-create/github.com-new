@@ -1537,6 +1537,13 @@ export default function StudioPage() {
                 {user ? (
                   <>
                     <p>已登录：{user}</p>
+                    <a className="secondary" href="/auth/security">
+                      账号安全 · 设置密码
+                    </a>
+                    <p className="help">
+                      首次 Magic Link
+                      登录后可设置密码；后续各设备使用同一邮箱和密码。
+                    </p>
                     <div className="button-row">
                       <button
                         className="secondary"

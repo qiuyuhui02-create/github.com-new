@@ -13,5 +13,10 @@ export default async function LoginPage({
   const query = await searchParams;
   const reason =
     typeof query.reason === "string" ? authReason(query.reason) : undefined;
-  return <LoginShell reason={reason} />;
+  return (
+    <LoginShell
+      reason={reason}
+      mode={query.mode === "magic" ? "magic" : "password"}
+    />
+  );
 }

@@ -2,9 +2,13 @@
 
 中文 AI 影视制作工作台。Next.js 16 / React 19 / TypeScript / Tailwind CSS 4，兼容 Vercel。
 
+## 免费密码登录（当前方案）
+
+首次使用 Supabase 默认 Magic Link 验证原邮箱，进入“账号安全 → 设置密码”。以后默认使用邮箱＋密码，Magic Link 作为备用。无需 Custom SMTP、修改模板或升级套餐；不重新注册用户、不改 user ID。步骤见 [密码登录指南](docs/PASSWORD_LOGIN.md)。
+
 ## 邮箱登录修复与排查
 
-登录故障请先按 [邮箱登录修复指南](docs/AUTH_LOGIN_FIX.md) 核对邮件模板、PKCE/token_hash 与 Vercel 回调。提供独立 `/auth/login` 验证码入口和需人工确认的 token_hash 链接；不需要数据库 SQL 或删除任何数据。不要连续重发邮件。
+保留 PR #6 的 PKCE、Cookie 与 token_hash 兼容修复。当前 `/auth/login` 默认密码登录，使用原始默认 Magic Link 即可完成首次验证，不以自定义模板或验证码为前提。底层排查见 [邮箱回调修复指南](docs/AUTH_LOGIN_FIX.md)，其中历史自定义模板步骤不适用于当前免费方案。
 
 ## 快速预览（无需 API Key）
 

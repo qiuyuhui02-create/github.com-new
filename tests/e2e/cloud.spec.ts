@@ -74,6 +74,9 @@ test("mocked provider: login isolates demo, load/save all modules, import images
   await page
     .getByRole("button", { name: "项目与云端设置", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Magic Link 备用", exact: true })
+    .click();
   await page.getByLabel("邮箱", { exact: true }).fill(authUser.email);
   test.skip(
     await page.getByRole("button", { name: "发送登录邮件" }).isDisabled(),
@@ -81,6 +84,7 @@ test("mocked provider: login isolates demo, load/save all modules, import images
   );
   await page.getByRole("button", { name: "发送登录邮件" }).click();
   await expect(page.locator(".toast")).toContainText("登录邮件已发送");
+  await page.getByText("邮件中已有验证码？", { exact: true }).click();
   await page.getByLabel("邮箱验证码").fill("123456");
   await page.getByRole("button", { name: "验证并登录" }).click();
   await expect(page.getByText(`已登录：${authUser.email}`)).toBeVisible();
@@ -117,7 +121,7 @@ test("mocked provider: login isolates demo, load/save all modules, import images
   expect(version).toBe(5);
   await page.getByRole("button", { name: "退出", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "发送登录邮件" }),
+    page.getByRole("button", { name: "密码登录", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "关闭窗口" }).click();
   await expect(page.locator(".asset-card").first()).toContainText(

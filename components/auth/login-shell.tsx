@@ -2,7 +2,13 @@
 import { useEffect, useState } from "react";
 import EmailLogin from "./email-login";
 import { type AuthReason } from "@/lib/auth/messages";
-export default function LoginShell({ reason }: { reason?: AuthReason }) {
+export default function LoginShell({
+  reason,
+  mode,
+}: {
+  reason?: AuthReason;
+  mode?: "password" | "magic";
+}) {
   const [error, setError] = useState(reason);
   useEffect(() => {
     if (location.hash) {
@@ -14,9 +20,10 @@ export default function LoginShell({ reason }: { reason?: AuthReason }) {
     <main className="auth-shell">
       <section className="panel">
         <div className="eyebrow">FRAMEWORK STUDIO</div>
-        <h1>邮箱登录</h1>
+        <h1>账号登录</h1>
         <EmailLogin
           reason={error}
+          initialMode={mode}
           onSuccess={() => location.assign("/?auth=success")}
         />
         <a className="text-button" href="/">

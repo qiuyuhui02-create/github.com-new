@@ -19,6 +19,7 @@ function failure(request: NextRequest, reason: AuthReason) {
   console.warn("[auth/callback]", { reason });
   const url = new URL("/auth/login", authRequestUrl(request));
   url.searchParams.set("reason", reason);
+  url.searchParams.set("mode", "magic");
   return protectAuthResponse(NextResponse.redirect(url.href + "#", 303));
 }
 export async function handleAuthCallback(

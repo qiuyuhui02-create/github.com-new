@@ -41,7 +41,7 @@ test.describe("Auth fixture integration", () => {
     page,
     request,
   }) => {
-    await page.goto("/auth/login");
+    await page.goto("/auth/login?mode=magic");
     await page.getByLabel("邮箱", { exact: true }).fill("owner@example.com");
     await page
       .getByRole("button", { name: "发送登录邮件", exact: true })
@@ -69,6 +69,7 @@ test.describe("Auth fixture integration", () => {
     await expect(page.locator(".auth-error")).toContainText("PKCE verifier");
     expect(page.url()).not.toContain("private-secret");
     await page.getByLabel("邮箱", { exact: true }).fill("owner@example.com");
+    await page.getByText("邮件中已有验证码？", { exact: true }).click();
     await page.getByLabel("邮箱验证码", { exact: true }).fill("12345678");
     await page.getByRole("button", { name: "验证并登录" }).click();
     await expect(page).toHaveURL(/auth=success/);
@@ -82,7 +83,7 @@ test.describe("Auth fixture integration", () => {
     page,
     request,
   }) => {
-    await page.goto("/auth/login");
+    await page.goto("/auth/login?mode=magic");
     await page.getByLabel("邮箱", { exact: true }).fill("owner@example.com");
     await page
       .getByRole("button", { name: "发送登录邮件", exact: true })
@@ -96,6 +97,7 @@ test.describe("Auth fixture integration", () => {
     await expect(
       page.getByRole("button", { name: "发送登录邮件", exact: true }),
     ).toBeDisabled();
+    await page.getByText("邮件中已有验证码？", { exact: true }).click();
     await page.getByLabel("邮箱验证码", { exact: true }).fill("123456");
     await expect(
       page.getByRole("button", { name: "验证并登录" }),
@@ -110,7 +112,7 @@ test.describe("Auth fixture integration", () => {
     page,
     request,
   }) => {
-    await page.goto("/auth/login");
+    await page.goto("/auth/login?mode=magic");
     await page.getByLabel("邮箱", { exact: true }).fill("limited@example.com");
     await page
       .getByRole("button", { name: "发送登录邮件", exact: true })
