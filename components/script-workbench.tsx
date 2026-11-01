@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { Studio } from "@/lib/model";
+import MultiAI from "@/components/multi-ai";
 import {
   confirmScene,
   editDraft,
@@ -191,6 +192,8 @@ function SceneEditor({
 }) {
   const [tab, setTab] = useState("修改与确认"),
     [accepted, setAccepted] = useState<number[]>([]);
+  const current = useRef(scene);
+  current.current = scene;
   const merge = scene.mergeCandidate ?? scene.final?.text ?? "";
   function setMerge(value: string | ((s: string) => string)) {
     patch({
@@ -227,18 +230,57 @@ function SceneEditor({
         </span>
       </div>
       <div className="tabs script-tabs">
-        {["修改与确认", "原始剧本", "修改差异", "版本历史", "最终剧本"].map(
-          (t) => (
-            <button
-              className={tab === t ? "selected" : ""}
-              key={t}
-              onClick={() => setTab(t)}
-            >
-              {t}
-            </button>
-          ),
-        )}
+        {[
+          "修改与确认",
+          "多 AI 对比",
+          "原始剧本",
+          "修改差异",
+          "版本历史",
+          "最终剧本",
+        ].map((t) => (
+          <button
+            className={tab === t ? "selected" : ""}
+            key={t}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
       </div>
+      {tab === "多 AI 对比" && (
+        <MultiAI
+          scene={scene}
+          tell={tell}
+          onSave={(versions) =>
+            action(() => {
+              const latest = current.current;
+              if ((latest.variants?.length || 0) + versions.length > 30)
+                throw Error("模型版本达到上限，请导出并拆分项目");
+              patch({
+                ...latest,
+                variants: [...(latest.variants || []), ...versions],
+              });
+            })
+          }
+          onAdopt={(text, target) =>
+            action(() => {
+              const latest = current.current;
+              if (target === "draft")
+                patch(editDraft(latest, text, true, "人工采用模型建议"));
+              else {
+                const candidate =
+                  target === "candidate-append" && latest.mergeCandidate
+                    ? `${latest.mergeCandidate}\n${text}`
+                    : text;
+                if (candidate.length > 50000)
+                  throw Error("人工候选超过 5 万字，请拆分场景");
+                patch({ ...latest, mergeCandidate: candidate });
+              }
+              tell("已写入工作区，仍需人工确认定稿");
+            })
+          }
+        />
+      )}
       {tab === "原始剧本" && (
         <>
           <p className="help">只读原稿 · 保留导入时内容</p>

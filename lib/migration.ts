@@ -1,10 +1,11 @@
 import { zipSync, strToU8 } from "fflate";
 import { parseStudio, type Studio } from "./model";
-import { describeFile, bindMedia } from "./media";
+import { describeFile, bindMedia, mediaScope } from "./media";
 export async function migrateLegacy(
   input: Studio,
   readStorage?: (src: string) => Promise<Blob>,
 ) {
+  const scope = mediaScope();
   const data = structuredClone(parseStudio(input));
   const entries: Record<string, Uint8Array> = {};
   const issues: string[] = [];
@@ -35,7 +36,8 @@ export async function migrateLegacy(
       const media = await describeFile(file, "参考图", { assetId });
       data.files = [...(data.files || []), media];
       entries[media.relativePath] = new Uint8Array(await blob.arrayBuffer());
-      bindMedia(media.id, file);
+      if (!bindMedia(media.id, file, false, scope))
+        throw Error("工作空间已变化，请重新开始迁移");
       const ref = `local:${media.id}`;
       cache.set(src, ref);
       return ref;
