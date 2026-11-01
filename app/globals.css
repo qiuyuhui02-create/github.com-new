@@ -3912,3 +3912,99 @@ footer {
   padding: 7px 5px;
   font-size: 12px;
 }
+.gemini-revision {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: #edf5eb;
+  border: 1px solid #d5e5d1;
+  border-radius: 12px;
+}
+.gemini-revision .section-intro {
+  margin: 0;
+}
+.gemini-revision strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.gemini-revision .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+}
+.gemini-revision .help {
+  font-size: 10px;
+  margin: 0;
+}
+.gemini-status {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #648064;
+}
+.gemini-revision input,
+.gemini-revision select,
+.gemini-revision textarea {
+  margin-top: 5px;
+}
+.gemini-proposal {
+  padding-top: 12px;
+  border-top: 1px solid #cdddca;
+}
+.gemini-proposal summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: #527453;
+}
+.gemini-proposal small {
+  font-size: 10px;
+  display: block;
+  margin: 10px 0;
+  color: #7a9276;
+}
+.gemini-proposal pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 400px;
+  overflow: auto;
+  margin: 12px 0;
+  padding: 12px;
+}
+.gemini-proposal ol {
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.9;
+  margin: 10px 0;
+}
+.gemini-proposal .secondary {
+  white-space: normal;
+}
+.gemini-revision {
+  margin-bottom: 18px;
+}
+.gemini-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.gemini-controls label:nth-child(3) {
+  grid-column: 1/-1;
+}
+.gemini-controls .primary {
+  justify-self: start;
+}
+.gemini-revision .gemini-proposal strong {
+  display: block;
+}
+@media (max-width: 760px) {
+  .gemini-controls {
+    grid-template-columns: 1fr;
+  }
+  .gemini-controls label:nth-child(3) {
+    grid-column: auto;
+  }
+}

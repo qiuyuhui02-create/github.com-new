@@ -1,3 +1,4 @@
+import { validProposal, type GeminiProposal } from "./gemini/shared";
 import type { Studio, Shot } from "./model";
 export type ScriptLanguage = "中文" | "日本語";
 export type ScriptVersion = {
@@ -9,6 +10,7 @@ export type ScriptVersion = {
 export type FinalScene = { text: string; revision: number; at: string };
 export type ScriptScene = {
   id: string;
+  geminiProposal?: GeminiProposal;
   manualComparisons?: { model: string; text: string }[];
   heading: string;
   original: string;
@@ -231,6 +233,7 @@ export function validateScreenplay(x: unknown): x is Screenplay {
             v.undoTargetRevision > 0)) &&
         typeof v.id === "string" &&
         typeof v.heading === "string" &&
+        (v.geminiProposal === undefined || validProposal(v.geminiProposal)) &&
         (v.manualComparisons === undefined ||
           (Array.isArray(v.manualComparisons) &&
             v.manualComparisons.length === 3 &&

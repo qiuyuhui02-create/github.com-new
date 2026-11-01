@@ -347,6 +347,15 @@ export default function MobileReader({
                   <details>
                     <summary>修改稿与 AI 结果</summary>
                     <pre className="reader-text">{s.draft}</pre>
+                    {s.geminiProposal && (
+                      <div>
+                        <h3>Gemini 独立建议（不等于定稿）</h3>
+                        <pre className="reader-text">
+                          {s.geminiProposal.script}
+                        </pre>
+                        <p>{s.geminiProposal.reasons.join("；")}</p>
+                      </div>
+                    )}
                     {s.manualComparisons?.map((c, i) => (
                       <div key={i}>
                         <h3>{c.model}</h3>
