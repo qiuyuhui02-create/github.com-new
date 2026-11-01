@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
+import { getSupabaseConfig } from "@/utils/supabase/config";
 export async function POST(req: Request) {
   if (process.env.ENABLE_PAID_AI !== "true" || !process.env.OPENAI_API_KEY)
     return NextResponse.json(
       { error: "付费 AI 未启用。请使用本地规则分析。" },
       { status: 503 },
     );
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL,
-    key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key)
+  const config = getSupabaseConfig();
+  if (!config)
     return NextResponse.json(
       { error: "请先配置 Supabase 登录" },
       { status: 503 },
     );
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
   if (!token) return NextResponse.json({ error: "请先登录" }, { status: 401 });
-  const db = createClient(url, key, {
+  const db = createClient(config.url, config.key, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const {
