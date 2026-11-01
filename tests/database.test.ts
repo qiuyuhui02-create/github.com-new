@@ -30,6 +30,12 @@ test("Postgres migration, RLS for two users, storage boundaries and atomic saves
     );
     await db.exec(sql);
     await db.exec(sql);
+    await db.exec(
+      await readFile(
+        new URL("../supabase/hybrid-storage.sql", import.meta.url),
+        "utf8",
+      ),
+    );
     // Deliberately add unsafe permissive policies: restrictive guards still enforce ownership.
     await db.exec(`create policy "legacy unsafe projects" on public.studio_projects for all to authenticated using(true) with check(true);
  create policy "legacy unsafe objects" on storage.objects for all to authenticated,anon using(true) with check(true);
@@ -75,6 +81,22 @@ test("Postgres migration, RLS for two users, storage boundaries and atomic saves
         JSON.stringify({ assets: [] }),
       ]),
       /Invalid project/,
+    );
+    const binary = structuredClone(seed);
+    binary.assets[0].image = "data:image/png;base64,YWJj";
+    await assert.rejects(
+      db.query("select * from public.save_studio_project($1,2)", [
+        JSON.stringify(binary),
+      ]),
+      /[Aa]bsolute path/,
+    );
+    binary.assets[0].image = "/Users/mac/image.png";
+    await assert.rejects(
+      db.query("update public.studio_projects set data=$1 where user_id=$2", [
+        JSON.stringify(binary),
+        alice,
+      ]),
+      /[Aa]bsolute path/,
     );
     const objects = await db.query<{ name: string }>(
       "select name from storage.objects",

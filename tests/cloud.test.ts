@@ -1,13 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  cacheKey,
-  cloudError,
-  migrateImages,
-  saveCloud,
-  loadCloud,
-} from "../lib/cloud";
+import { cacheKey, cloudError, saveCloud, loadCloud } from "../lib/cloud";
 import { seed } from "../lib/model";
 test("local account caches do not share data with demo or other users", () => {
   assert.equal(cacheKey(null), "framework-studio-v1");
@@ -51,43 +45,4 @@ test("cloud read scopes by user and validates project format", async () => {
   } as unknown as SupabaseClient;
   assert.deepEqual((await loadCloud(client, "alice"))?.data, seed);
   assert.match(cloudError({ code: "PGRST202" }).message, /schema.sql/);
-});
-test("backup migrates embedded images in covers, references and historical versions without changing IDs", async () => {
-  const input = structuredClone(seed);
-  const src = "data:image/png;base64,aGVsbG8=";
-  input.assets[0].image = src;
-  input.assets[0].references = [src];
-  input.assets[0].versions = [
-    {
-      image: src,
-      at: new Date().toISOString(),
-      description: "old",
-      model: "FLUX",
-    },
-  ];
-  let uploads = 0;
-  const client = {
-    storage: {
-      from: (bucket: string) => {
-        assert.equal(bucket, "assets");
-        return {
-          upload: async (path: string, bytes: Uint8Array) => {
-            assert.match(path, /^alice\//);
-            assert.equal(bytes.length, 5);
-            uploads++;
-            return { error: null };
-          },
-        };
-      },
-    },
-  } as unknown as SupabaseClient;
-  const migrated = await migrateImages(client, input, "alice");
-  assert.equal(uploads, 1);
-  assert.match(migrated.assets[0].image, /^storage:alice\//);
-  assert.equal(migrated.assets[0].references[0], migrated.assets[0].image);
-  assert.equal(migrated.assets[0].versions[0].image, migrated.assets[0].image);
-  assert.equal(input.assets[0].image, src);
-  assert.deepEqual(migrated.shots, input.shots);
-  input.assets[0].image = "storage:bob/private.png";
-  await assert.rejects(migrateImages(client, input, "alice"), /其他账号/);
 });

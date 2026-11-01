@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useSyncExternalStore } from "react";
 import {
   Aperture,
   ArrowDownToLine,
@@ -47,15 +47,28 @@ import {
 import { supabase } from "@/lib/supabase";
 import EmailLogin from "@/components/auth/email-login";
 import { legacyFragmentReason } from "@/lib/auth/legacy";
+import MediaLibrary from "@/components/media-library";
+import ScriptWorkbench from "@/components/script-workbench";
+import { shotNeedsReview } from "@/lib/screenplay";
+import {
+  describeFile,
+  bindMedia,
+  clearMedia,
+  mediaURL,
+  mediaStatus,
+  mediaSnapshot,
+  subscribeMedia,
+} from "@/lib/media";
 import {
   cacheKey,
   emptyStudio,
   loadCloud,
   saveCloud,
-  migrateImages,
   verifiedClient,
 } from "@/lib/cloud";
 const modules = [
+  { name: "剧本工作台", icon: Film },
+  { name: "本地素材库", icon: Folder },
   { name: "今日计划", icon: CalendarDays },
   { name: "资产制作", icon: Box },
   { name: "资产总览", icon: LayoutGrid },
@@ -110,6 +123,7 @@ export default function StudioPage() {
       if (activeUser.current === id && initialized) return;
       initialized = true;
       accountEpoch.current++;
+      clearMedia();
       activeUser.current = id;
       setReady(false);
       setUserId(id);
@@ -218,30 +232,28 @@ export default function StudioPage() {
   }
   async function upload(file: File | undefined, reference = false) {
     if (!file || !asset) return;
-    if (
-      !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-      file.size > 5 * 1024 * 1024
-    )
-      return tell("请上传 5MB 以内的 JPG、PNG 或 WebP 图片");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+      return tell("请选择 JPG、PNG 或 WebP 图片");
     const epoch = accountEpoch.current;
     setBusy(true);
     try {
-      let image = "";
-      if (supabase && user) {
-        const db = await verifiedClient(supabase, userId!);
-        const path = `${userId}/${uid()}.${file.type.split("/")[1]}`;
-        const { error } = await db.storage.from("assets").upload(path, file);
-        if (error) throw error;
-        image = `storage:${path}`;
-      } else {
-        image = await new Promise<string>((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(String(r.result));
-          r.onerror = reject;
-          r.readAsDataURL(file);
-        });
-      }
+      const previous = (data.files || []).find(
+        (f) => `local:${f.id}` === asset.image,
+      );
+      const entry = await describeFile(
+        file,
+        reference ? "参考图" : asset.type,
+        {
+          assetId: asset.id,
+          ...(!reference && previous
+            ? { previousId: previous.id, version: previous.version + 1 }
+            : {}),
+        },
+      );
       if (accountEpoch.current !== epoch) return;
+      bindMedia(entry.id, file);
+      update({ files: [...(data.files || []), entry] });
+      const image = `local:${entry.id}`;
       setAsset((a) =>
         a
           ? {
@@ -253,12 +265,10 @@ export default function StudioPage() {
           : a,
       );
       tell(
-        user
-          ? "图片已上传，请保存资产并推送项目"
-          : "图片已载入，请保存资产；演示图片仅保存在此浏览器",
+        "本地文件已登记，未上传。请保存资产，并在本地素材库按清单归档原件。",
       );
     } catch (e) {
-      tell(`上传失败：${(e as Error).message}`);
+      tell((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -269,7 +279,7 @@ export default function StudioPage() {
       !confirm(
         direction === "push"
           ? imported
-            ? "将备份中的四类数据导入当前账号云端项目，替换云端内容；本地图片将上传。是否继续？"
+            ? "仅导入轻量元数据到云端，媒体原件保存在 Windows 连接的 SSD。旧 Base64 请先在本地素材库迁移。是否继续？"
             : "将当前项目保存到云端？若其他页面已更新项目，本次保存会被拒绝。"
           : "用云端项目替换当前本地项目？建议先导出本地备份。",
       )
@@ -281,7 +291,7 @@ export default function StudioPage() {
     try {
       const db = await verifiedClient(supabase, owner);
       if (direction === "push") {
-        const migrated = await migrateImages(db, imported || data, owner);
+        const migrated = imported || data;
         if (accountEpoch.current !== epoch) return;
         const result = await saveCloud(db, migrated, cloudVersion);
         if (accountEpoch.current !== epoch) return;
@@ -410,9 +420,9 @@ export default function StudioPage() {
               >
                 <m.icon size={18} />
                 <span>{m.name}</span>
-                {i === 2 ? (
+                {m.name === "资产总览" ? (
                   <span className="nav-count">{data.assets.length}</span>
-                ) : i === 6 ? (
+                ) : m.name === "AI Agent" ? (
                   <span className="ai-dot" />
                 ) : null}
               </button>
@@ -497,32 +507,48 @@ export default function StudioPage() {
                 <button
                   className="primary"
                   onClick={() =>
-                    page.startsWith("资产")
-                      ? setAsset(emptyAsset())
-                      : page.startsWith("分镜")
-                        ? newShot()
-                        : page === "Prompt 中心"
-                          ? setPrompt({
-                              id: uid(),
-                              title: "",
-                              category: "人物",
-                              content: "",
-                            })
-                          : page === "AI Agent"
-                            ? setReport(analyze(data))
-                            : document.getElementById("task-title")?.focus()
+                    page === "剧本工作台"
+                      ? document
+                          .querySelector<HTMLTextAreaElement>(
+                            '[aria-label="原始剧本导入"],[aria-label="场景修改稿"]',
+                          )
+                          ?.focus()
+                      : page === "本地素材库"
+                        ? document
+                            .querySelector<HTMLInputElement>(
+                              ".media-library input[type=file]",
+                            )
+                            ?.click()
+                        : page.startsWith("资产")
+                          ? setAsset(emptyAsset())
+                          : page.startsWith("分镜")
+                            ? newShot()
+                            : page === "Prompt 中心"
+                              ? setPrompt({
+                                  id: uid(),
+                                  title: "",
+                                  category: "人物",
+                                  content: "",
+                                })
+                              : page === "AI Agent"
+                                ? setReport(analyze(data))
+                                : document.getElementById("task-title")?.focus()
                   }
                 >
                   <Plus size={16} />
-                  {page.startsWith("资产")
-                    ? "新建资产"
-                    : page.startsWith("分镜")
-                      ? "新建分镜"
-                      : page === "Prompt 中心"
-                        ? "新建 Prompt"
-                        : page === "AI Agent"
-                          ? "检查项目"
-                          : "添加任务"}
+                  {page === "剧本工作台"
+                    ? "编辑剧本"
+                    : page === "本地素材库"
+                      ? "登记素材"
+                      : page.startsWith("资产")
+                        ? "新建资产"
+                        : page.startsWith("分镜")
+                          ? "新建分镜"
+                          : page === "Prompt 中心"
+                            ? "新建 Prompt"
+                            : page === "AI Agent"
+                              ? "检查项目"
+                              : "添加任务"}
                 </button>
               </div>
             </section>
@@ -537,6 +563,26 @@ export default function StudioPage() {
                 配置云端 <ArrowUpRight size={13} />
               </button>
             </div>
+            {page === "剧本工作台" && (
+              <ScriptWorkbench
+                key={userId || "demo"}
+                data={data}
+                onChange={(d) => {
+                  if (activeUser.current === userId) update(d);
+                }}
+                tell={tell}
+              />
+            )}
+            {page === "本地素材库" && (
+              <MediaLibrary
+                key={userId || "demo"}
+                data={data}
+                onChange={(d) => {
+                  if (activeUser.current === userId) update(d);
+                }}
+                tell={tell}
+              />
+            )}
             {page.startsWith("资产") && (
               <>
                 <section className="stats">
@@ -879,8 +925,10 @@ export default function StudioPage() {
                       >
                         <AssetImage
                           src={
+                            s.image ||
                             data.assets.find((a) => a.id === s.assets[0])
-                              ?.image || ""
+                              ?.image ||
+                            ""
                           }
                           alt={s.title}
                         />
@@ -892,6 +940,11 @@ export default function StudioPage() {
                           SEQUENCE {String(i + 1).padStart(2, "0")}
                         </span>
                         <h3>{s.title}</h3>
+                        {shotNeedsReview(s, data) && (
+                          <p className="shot-warning">
+                            来源剧本已变化，镜头可能需要更新（未自动覆盖）
+                          </p>
+                        )}
                         <p>
                           {s.size} / {s.camera} / {s.movement}
                         </p>
@@ -1143,7 +1196,7 @@ export default function StudioPage() {
                 </div>
                 <label className="upload-button">
                   <Upload size={15} />
-                  {busy ? "正在上传…" : "上传主图"}
+                  {busy ? "正在上传…" : "选择本地主图"}
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
@@ -1152,11 +1205,9 @@ export default function StudioPage() {
                   />
                 </label>
                 <small className="help">
-                  JPG / PNG / WebP · 最大 5MB
+                  JPG / PNG / WebP · 本地文件，不上传
                   <br />
-                  {user
-                    ? "上传到私有 Supabase Storage"
-                    : "演示模式：保存在浏览器，请控制图片大小"}
+                  {"原件保存在本地 SSD；此设备未连接时仍可编辑文字"}
                 </small>
                 <h4>
                   参考图 <span>{asset.references.length}</span>
@@ -1590,7 +1641,7 @@ export default function StudioPage() {
                 </button>
                 {userId && (
                   <label className="upload-button">
-                    导入 JSON 备份到云端（含本地图片）
+                    导入 JSON 元数据到云端（不含媒体）
                     <input
                       type="file"
                       accept="application/json"
@@ -1668,10 +1719,16 @@ export default function StudioPage() {
 }
 function AssetImage({ src, alt }: { src: string; alt: string }) {
   const [url, setUrl] = useState("");
+  const mediaGeneration = useSyncExternalStore(
+    subscribeMedia,
+    mediaSnapshot,
+    () => 0,
+  );
   useEffect(() => {
     let active = true;
     setUrl("");
-    if (src.startsWith("storage:") && supabase) {
+    if (src.startsWith("local:")) setUrl(mediaURL(src.slice(6)));
+    else if (src.startsWith("storage:") && supabase) {
       supabase.storage
         .from("assets")
         .createSignedUrl(src.slice(8), 3600)
@@ -1686,13 +1743,15 @@ function AssetImage({ src, alt }: { src: string; alt: string }) {
     return () => {
       active = false;
     };
-  }, [src]);
+  }, [src, mediaGeneration]);
   return url ? (
     <img src={url} alt={alt} onError={() => setUrl("")} />
   ) : (
     <div className="image-placeholder">
       <ImagePlus size={32} />
-      <span>等待你的灵感</span>
+      <span>
+        {src.startsWith("local:") ? mediaStatus(src.slice(6)) : "等待你的灵感"}
+      </span>
     </div>
   );
 }
