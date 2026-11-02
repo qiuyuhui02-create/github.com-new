@@ -1,0 +1,148 @@
+.studio {
+  min-width: 0;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+.review {
+  color: #997447;
+  font-size: 11px;
+}
+.palette {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 0 0;
+}
+.palette input {
+  flex: 1;
+  min-width: 180px;
+}
+.swatch {
+  border: 1px solid #d9e2d4;
+  border-radius: 8px;
+  padding: 7px 12px;
+  color: #354d48;
+}
+.editor {
+  position: relative;
+  min-width: 0;
+  margin-top: 12px;
+  background: #fdfdf9;
+  border-radius: 7px;
+}
+/* Leave glyphs, caret, IME and selection entirely native; only paint backgrounds below. */
+.studio .editor .textarea {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin: 0;
+  background: transparent;
+  font-kerning: none;
+  font-variant-ligatures: none;
+}
+.viewport {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.layer {
+  box-sizing: border-box;
+  color: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-kerning: none;
+  font-variant-ligatures: none;
+  transform-origin: top left;
+}
+.mark {
+  color: transparent;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 2px;
+}
+.mark[data-color="yellow"],
+.swatch[data-color="yellow"],
+.dot[data-color="yellow"] {
+  background-color: #ffe994;
+}
+.mark[data-color="green"],
+.swatch[data-color="green"],
+.dot[data-color="green"] {
+  background-color: #c3ebc9;
+}
+.mark[data-color="pink"],
+.swatch[data-color="pink"],
+.dot[data-color="pink"] {
+  background-color: #f8cee2;
+}
+.mark[data-color="blue"],
+.swatch[data-color="blue"],
+.dot[data-color="blue"] {
+  background-color: #c7e4ff;
+}
+.list {
+  border-top: 1px solid #e4eadd;
+  margin-top: 12px;
+  padding-top: 12px;
+  font-size: 12px;
+}
+.list summary {
+  cursor: pointer;
+  color: #658070;
+}
+.row {
+  padding: 14px 0;
+  border-bottom: 1px solid #e4eadd;
+}
+.quote {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #526b60;
+}
+.quote small {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: #8a8e79;
+}
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.controls select {
+  width: auto;
+}
+.controls input {
+  flex: 1;
+  min-width: 140px;
+}
+@media (max-width: 760px) {
+  .quote {
+    flex-wrap: wrap;
+  }
+  .controls {
+    align-items: stretch;
+  }
+}

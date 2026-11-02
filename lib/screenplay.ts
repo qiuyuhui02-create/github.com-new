@@ -1,3 +1,10 @@
+import {
+  mapHighlights,
+  highlightSignature,
+  validHighlights,
+  type Highlight,
+  type TextChange,
+} from "./highlights";
 import type { ScriptChapter, ArchivedChapter } from "./screenplay-structure";
 import type { Studio, Shot } from "./model";
 export type ScriptLanguage = "中文" | "日本語";
@@ -6,6 +13,7 @@ export type ScriptVersion = {
   text: string;
   model: string;
   kind?: "draft" | "candidate";
+  highlights?: Highlight[];
   at: string;
 };
 export type FinalScene = { text: string; revision: number; at: string };
@@ -18,6 +26,8 @@ export type ScriptScene = {
   timeOfDay?: string;
   original: string;
   draft: string;
+  highlights?: Highlight[];
+  highlightsHidden?: boolean;
   draftRevision: number;
   draftUndo?: string[];
   draftEditBase?: string;
@@ -92,10 +102,14 @@ export function editDraft(
   text: string,
   checkpoint = false,
   model = "人工修改",
+  change?: TextChange,
 ): ScriptScene {
   if (text.length > 200000) throw Error("单场剧本超过 20 万字");
   const versions =
-    checkpoint && scene.versions.at(-1)?.text !== scene.draft
+    checkpoint &&
+    (scene.versions.at(-1)?.text !== scene.draft ||
+      highlightSignature(scene.versions.at(-1)?.highlights) !==
+        highlightSignature(scene.highlights))
       ? [
           ...scene.versions,
           {
@@ -103,14 +117,25 @@ export function editDraft(
             text: scene.draft,
             model,
             kind: "draft" as const,
+            ...(scene.highlights
+              ? { highlights: structuredClone(scene.highlights) }
+              : {}),
             at: new Date().toISOString(),
           },
         ]
       : scene.versions;
   if (versions.length > 100)
     throw Error("版本达到 100 个，请先导出备份并拆分项目");
+  const highlights = mapHighlights(scene.highlights, scene.draft, text, {
+    change,
+    checkpoint,
+    rememberBefore: scene.draftEditBase === undefined,
+    historical: scene.versions.find((v) => v.text === text && v.highlights)
+      ?.highlights,
+  });
   const next: ScriptScene = {
     ...scene,
+    ...(highlights !== undefined ? { highlights } : {}),
     draft: text,
     draftRevision: scene.draftRevision + (text === scene.draft ? 0 : 1),
     versions,
@@ -273,7 +298,8 @@ export function validateScreenplay(x: unknown): x is Screenplay {
     typeof v.text === "string" &&
     typeof v.model === "string" &&
     (v.kind === undefined || ["draft", "candidate"].includes(v.kind)) &&
-    Number.isFinite(Date.parse(v.at));
+    Number.isFinite(Date.parse(v.at)) &&
+    (v.highlights === undefined || validHighlights(v.highlights, v.text));
   const final = (v: FinalScene) =>
     v &&
     typeof v.text === "string" &&
@@ -314,6 +340,9 @@ export function validateScreenplay(x: unknown): x is Screenplay {
       (typeof v.draftEditBase === "string" &&
         v.draftEditBase.length <= 200000)) &&
     typeof v.draft === "string" &&
+    (v.highlights === undefined || validHighlights(v.highlights, v.draft)) &&
+    (v.highlightsHidden === undefined ||
+      typeof v.highlightsHidden === "boolean") &&
     v.draft.length <= 200000 &&
     Number.isSafeInteger(v.draftRevision) &&
     v.draftRevision > 0 &&

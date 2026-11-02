@@ -23,7 +23,7 @@ import { downloadBlob } from "@/lib/media";
 import ManualScriptCompare from "./manual-script-compare";
 import CreateScript from "./screenplay/create-script";
 import ChapterDirectory from "./screenplay/chapter-directory";
-import TextEditor from "./screenplay/text-editor";
+import HighlightEditor from "./screenplay/highlight-editor";
 import type { TextSelection } from "@/lib/text-selection";
 export default function ScriptWorkbench({
   data,
@@ -354,29 +354,12 @@ function SceneEditor({
           )}
           {tool === "工作稿" && (
             <>
-              <label className="script-label">
-                人工工作稿
-                <TextEditor
-                  className="screenplay-text wide-script-body"
-                  aria-label="场景修改稿"
-                  maxLength={200000}
-                  rows={16}
-                  value={scene.draft}
-                  onSelection={(selection) => {
-                    draftSelection.current = selection;
-                  }}
-                  onChange={(text) =>
-                    act(() => {
-                      patch(editDraft(scene, text));
-                      setAccepted([]);
-                    })
-                  }
-                  onBlur={() =>
-                    act(() => patch(editDraft(scene, scene.draft, true)))
-                  }
-                  placeholder="在这里逐场编写……"
-                />
-              </label>
+              <HighlightEditor
+                scene={scene}
+                patch={patch}
+                tell={tell}
+                selection={draftSelection}
+              />
               <div className="button-row">
                 <button
                   className="secondary"
