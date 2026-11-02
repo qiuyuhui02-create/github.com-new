@@ -52,10 +52,10 @@ test("manual script: common prompt clipboard, selected paragraph adoption, undo,
     initial.script!.scenes[0].draft,
   );
   await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
-  for (const name of ["ChatGPT 候选", "Gemini 候选", "Claude 候选"])
-    await expect(
-      page.getByRole("heading", { name, exact: true }),
-    ).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "ChatGPT", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.getByText("更多：修改要求与版本", { exact: true }).click();
   await page
     .getByLabel("统一修改要求", { exact: true })
     .fill("自然对白，保留日本語，简化解释性台词。");
@@ -72,24 +72,24 @@ test("manual script: common prompt clipboard, selected paragraph adoption, undo,
   await candidate.focus();
   await candidate.press("Control+Home");
   await candidate.press("Shift+End");
-  await page
-    .getByRole("button", { name: "将结果 1 选中文字加入工作稿", exact: true })
-    .click();
-  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
+  await page.getByRole("button", { name: "采用选中文字", exact: true }).click();
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
   await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
     initial.script!.scenes[0].draft + "\n\n人物：新的手动候选。",
   );
-  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
   await page.getByRole("button", { name: "撤销最近修改", exact: true }).click();
   await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
     initial.script!.scenes[0].draft,
   );
   await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
+  await page.getByText("更多：修改要求与版本", { exact: true }).click();
   await page
-    .getByRole("button", { name: "保存结果 1 版本", exact: true })
+    .getByRole("button", { name: "保存当前候选版本", exact: true })
     .click();
-  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
   await page.getByLabel("场景修改稿", { exact: true }).fill("单独的人工改写");
+  await page.getByText("更多：原稿、差异与历史", { exact: true }).click();
   await page.getByRole("button", { name: "修改差异", exact: true }).click();
   await expect(page.locator(".diff-row.changed").first()).toBeVisible();
   await page.getByRole("button", { name: "确认定稿", exact: true }).click();
@@ -99,13 +99,14 @@ test("manual script: common prompt clipboard, selected paragraph adoption, undo,
   await page.reload();
   await page.getByRole("button", { name: "剧本工作台", exact: true }).click();
   await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
+  await page.getByText("更多：修改要求与版本", { exact: true }).click();
   await expect(page.getByLabel("统一修改要求", { exact: true })).toHaveValue(
     "自然对白，保留日本語，简化解释性台词。",
   );
   await expect(candidate).toHaveValue(
     "人物：新的手动候选。\n\n不要自动采用第二段。",
   );
-  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
   await page.getByRole("button", { name: "撤销最近修改", exact: true }).click();
   await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
     initial.script!.scenes[0].draft,

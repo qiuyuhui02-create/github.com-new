@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Studio } from "@/lib/model";
 import {
   confirmScene,
@@ -17,11 +17,14 @@ import {
   moveScene,
   archiveScene,
   restoreScene,
+  restoreChapter,
 } from "@/lib/screenplay-structure";
 import { downloadBlob } from "@/lib/media";
 import ManualScriptCompare from "./manual-script-compare";
 import CreateScript from "./screenplay/create-script";
 import ChapterDirectory from "./screenplay/chapter-directory";
+import TextEditor from "./screenplay/text-editor";
+import type { TextSelection } from "@/lib/text-selection";
 export default function ScriptWorkbench({
   data,
   onChange,
@@ -44,6 +47,7 @@ export default function ScriptWorkbench({
     chapter =
       chapters.find((c) => c.id === active) ||
       chapters.find((c) => c.sceneIds.includes(selected)) ||
+      chapters.find((c) => c.sceneIds.length > 0) ||
       chapters[0],
     scene =
       script.scenes.find(
@@ -77,7 +81,7 @@ export default function ScriptWorkbench({
           </span>
         </div>
         <details className="script-info">
-          <summary>剧本信息与原始全文</summary>
+          <summary>更多：剧本信息与原始全文</summary>
           <label>
             剧本名称
             <input
@@ -188,6 +192,36 @@ export default function ScriptWorkbench({
               <pre className="screenplay-text">{chapter.originalText}</pre>
             </details>
           )}
+          {(script.archivedChapters?.length || 0) > 0 && (
+            <details className="panel chapter-recycle">
+              <summary>
+                章节回收站 · {script.archivedChapters!.length} 项
+              </summary>
+              {script.archivedChapters!.map((entry) => (
+                <div key={entry.chapter.id} className="recycle-row">
+                  <span>
+                    {entry.chapter.name} · {entry.scenes.length} 场
+                  </span>
+                  <button
+                    className="secondary"
+                    aria-label={`恢复章节 ${entry.chapter.name}`}
+                    onClick={() =>
+                      act(() => {
+                        update(restoreChapter(script, entry.chapter.id));
+                        select(
+                          entry.chapter.sceneIds[0] || "",
+                          entry.chapter.id,
+                        );
+                        tell("章节已恢复，原有内容、顺序与关联均保留");
+                      })
+                    }
+                  >
+                    恢复整个章节
+                  </button>
+                </div>
+              ))}
+            </details>
+          )}
           {(script.archivedScenes?.length || 0) > 0 && (
             <details className="panel scene-recycle">
               <summary>场景回收站 · {script.archivedScenes!.length} 项</summary>
@@ -241,10 +275,11 @@ function SceneEditor({
   onGenerateShots: () => void;
   onInstructionsChange: (text: string) => void;
 }) {
-  const [mode, setMode] = useState("编写剧本"),
+  const [mode, setMode] = useState("正文编辑"),
     [tool, setTool] = useState("工作稿"),
     [accepted, setAccepted] = useState<number[]>([]);
-  const merge = scene.mergeCandidate ?? scene.final?.text ?? "",
+  const draftSelection = useRef<TextSelection | null>(null);
+  const merge = scene.mergeCandidate ?? scene.draft,
     chapters = chaptersOf(script),
     chapter = chapters.find((c) => c.sceneIds.includes(scene.id));
   const act = (fn: () => void) => {
@@ -285,7 +320,7 @@ function SceneEditor({
         </button>
       </header>
       <div className="tabs studio-editor-tabs">
-        {["编写剧本", "AI 版本对比", "确认定稿"].map((t) => (
+        {["正文编辑", "AI 版本对比", "确认定稿"].map((t) => (
           <button
             key={t}
             aria-pressed={mode === t}
@@ -296,32 +331,43 @@ function SceneEditor({
           </button>
         ))}
       </div>
-      {mode === "编写剧本" && (
+      {mode === "正文编辑" && (
         <>
-          <div className="writing-tool-tabs">
-            {["工作稿", "原始剧本", "修改差异", "版本历史"].map((t) => (
-              <button
-                className={`text-button ${tool === t ? "selected" : ""}`}
-                key={t}
-                onClick={() => setTool(t)}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          <details className="writing-more">
+            <summary>更多：原稿、差异与历史</summary>
+            <div className="writing-tool-tabs">
+              {["工作稿", "原始剧本", "修改差异", "版本历史"].map((t) => (
+                <button
+                  className={`text-button ${tool === t ? "selected" : ""}`}
+                  key={t}
+                  onClick={() => setTool(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </details>
+          {tool !== "工作稿" && (
+            <button className="text-button" onClick={() => setTool("工作稿")}>
+              返回工作稿
+            </button>
+          )}
           {tool === "工作稿" && (
             <>
               <label className="script-label">
                 人工工作稿
-                <textarea
+                <TextEditor
                   className="screenplay-text wide-script-body"
                   aria-label="场景修改稿"
-                  maxLength={50000}
+                  maxLength={200000}
                   rows={16}
                   value={scene.draft}
-                  onChange={(e) =>
+                  onSelection={(selection) => {
+                    draftSelection.current = selection;
+                  }}
+                  onChange={(text) =>
                     act(() => {
-                      patch(editDraft(scene, e.target.value));
+                      patch(editDraft(scene, text));
                       setAccepted([]);
                     })
                   }
@@ -500,18 +546,12 @@ function SceneEditor({
         <>
           <ManualScriptCompare
             scene={scene}
+            draftSelection={draftSelection}
             patch={patch}
             tell={tell}
             instructions={script.revisionInstructions || ""}
             onInstructionsChange={onInstructionsChange}
           />
-          <details className="scene-details">
-            <summary>查看当前人工工作稿</summary>
-            <pre className="screenplay-text">{scene.draft}</pre>
-          </details>
-          <button className="secondary" onClick={() => setMode("编写剧本")}>
-            返回宽幅正文编辑
-          </button>
         </>
       )}
       {mode === "确认定稿" && (
@@ -521,16 +561,13 @@ function SceneEditor({
             <button className="secondary" onClick={() => setMerge(scene.draft)}>
               整版加入确认候选
             </button>
-            <button className="secondary" onClick={() => setMode("编写剧本")}>
-              返回宽幅正文编辑
-            </button>
           </div>
           <div className="final-review-layout">
             <label className="script-label">
               人工合并候选（尚未定稿）
               <textarea
                 aria-label="人工合并候选"
-                maxLength={50000}
+                maxLength={200000}
                 rows={15}
                 value={merge}
                 onChange={(e) => setMerge(e.target.value)}

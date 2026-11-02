@@ -7,7 +7,7 @@ import {
   renameChapter,
   collapseChapter,
   reorderChapter,
-  removeChapter,
+  archiveChapter,
   duplicateChapter,
   addScene,
   renameScene,
@@ -97,11 +97,7 @@ export default function ChapterDirectory({
       sceneId?: string;
       name: string;
     } | null>(null),
-    [deleting, setDeleting] = useState<{
-      id: string;
-      step: 1 | 2;
-      target: string;
-    } | null>(null),
+    [deleting, setDeleting] = useState<{ id: string } | null>(null),
     [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(
       null,
     ),
@@ -394,8 +390,7 @@ export default function ChapterDirectory({
             },
             {
               label: "删除章节",
-              run: () =>
-                setDeleting({ id: menuChapter.id, step: 1, target: "" }),
+              run: () => setDeleting({ id: menuChapter.id }),
             },
           ].map((item) => (
             <button
@@ -466,86 +461,28 @@ export default function ChapterDirectory({
         </ScriptDialog>
       )}
       {deleting && deleteChapter && (
-        <ScriptDialog
-          title={
-            deleting.step === 1
-              ? "删除章节 · 第一次确认"
-              : "删除章节 · 最终确认"
-          }
-          onClose={() => setDeleting(null)}
-        >
-          {deleting.step === 1 ? (
-            <>
-              <p>
-                准备删除“{deleteChapter.name}
-                ”。本操作只移除章节容器，不删除场景正文。
-              </p>
-              {deleteChapter.sceneIds.length > 0 ? (
-                <>
-                  <p className="auth-error">
-                    本章含 {deleteChapter.sceneIds.length}{" "}
-                    个场景，必须移到其他章节；也可以取消。
-                  </p>
-                  <label>
-                    接收场景的章节
-                    <select
-                      aria-label="接收场景的章节"
-                      value={deleting.target}
-                      onChange={(e) =>
-                        setDeleting({ ...deleting, target: e.target.value })
-                      }
-                    >
-                      <option value="">请选择其他章节</option>
-                      {chapters
-                        .filter((c) => c.id !== deleteChapter.id)
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  {chapters.length === 1 && (
-                    <p className="help">请先取消，并新建一个接收章节。</p>
-                  )}
-                </>
-              ) : (
-                <p>当前章节没有场景。</p>
-              )}
-              <button
-                className="secondary"
-                disabled={deleteChapter.sceneIds.length > 0 && !deleting.target}
-                onClick={() => setDeleting({ ...deleting, step: 2 })}
-              >
-                继续检查
-              </button>
-            </>
-          ) : (
-            <>
-              <p>
-                确认移除“{deleteChapter.name}”？
-                {deleteChapter.sceneIds.length > 0
-                  ? `全部 ${deleteChapter.sceneIds.length} 个场景将移到“${chapters.find((c) => c.id === deleting.target)?.name}”，ID与分镜关联不变。`
-                  : "这是一个空章节。"}
-              </p>
-              <button
-                className="danger secondary"
-                onClick={() =>
-                  action(() => {
-                    onChange(
-                      removeChapter(script, deleting.id, deleting.target),
-                    );
-                    setDeleting(null);
-                  })
-                }
-              >
-                确认删除章节
-              </button>
-            </>
-          )}
-          <button className="text-button" onClick={() => setDeleting(null)}>
-            取消删除
-          </button>
+        <ScriptDialog title="删除章节" onClose={() => setDeleting(null)}>
+          <p>
+            将“{deleteChapter.name}”及其中 {deleteChapter.sceneIds.length}{" "}
+            个场景整体移入回收站？正文、候选、定稿和分镜关联均保留，可一键恢复。
+          </p>
+          <div className="button-row">
+            <button
+              className="danger secondary"
+              onClick={() =>
+                action(() => {
+                  onChange(archiveChapter(script, deleting.id));
+                  setDeleting(null);
+                  tell("章节已移入回收站，可恢复");
+                })
+              }
+            >
+              确认删除章节
+            </button>
+            <button className="text-button" onClick={() => setDeleting(null)}>
+              取消删除
+            </button>
+          </div>
         </ScriptDialog>
       )}
     </>

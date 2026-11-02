@@ -526,12 +526,12 @@ export default function StudioPage() {
       ) : (
         <div className="studio-shell" inert={busy || !ready}>
           <aside className="sidebar">
-            <a className="brand" href="/" aria-label="FRAMEWORK Studio 首页">
+            <a className="brand" href="/" aria-label="aikari 首页">
               <span className="brand-icon">
                 <Aperture size={26} />
               </span>
               <span>
-                FRAMEWORK<small>STUDIO / 创作无界</small>
+                aikari<small>个人电影创作手册</small>
               </span>
             </a>
             <div className="workspace-label">
@@ -1350,7 +1350,7 @@ export default function StudioPage() {
               )}
               <footer>
                 <span>
-                  <Aperture size={13} /> FRAMEWORK STUDIO{" "}
+                  <Aperture size={13} /> aikari{" "}
                   <em>从创意，到银幕。</em>
                 </span>
                 <span>

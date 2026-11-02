@@ -68,13 +68,20 @@ test("free local workflow: schedule, timer across tabs/reload, mood, three draft
   await page.getByRole("button", { name: "预览拆分", exact: true }).click();
   await page.getByRole("button", { name: "保留原稿并建立场景" }).click();
   await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
-  for (let i = 1; i <= 3; i++)
+  for (let i = 1; i <= 3; i++) {
+    await page
+      .getByRole("tab", {
+        name: ["ChatGPT", "Gemini", "Claude"][i - 1],
+        exact: true,
+      })
+      .click();
     await page
       .getByLabel(`AI 修改结果 ${i}`, { exact: true })
       .fill(`模型 ${i} 第一段。\n\n模型 ${i} 第二段。`);
-  await page
-    .getByRole("button", { name: "将结果 2 作为合并候选", exact: true })
-    .click();
+  }
+  await page.getByRole("tab", { name: "Gemini", exact: true }).click();
+  await page.getByText("更多：修改要求与版本", { exact: true }).click();
+  await page.getByRole("button", { name: "送入定稿候选", exact: true }).click();
   await page.getByRole("button", { name: "确认定稿", exact: true }).click();
   await expect(page.getByLabel("人工合并候选", { exact: true })).toHaveValue(
     "模型 2 第一段。\n\n模型 2 第二段。",
@@ -86,6 +93,7 @@ test("free local workflow: schedule, timer across tabs/reload, mood, three draft
     .click();
   await page.getByRole("button", { name: "从本场定稿生成分镜草稿" }).click();
   await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
+  await page.getByRole("tab", { name: "Gemini", exact: true }).click();
   await page
     .getByLabel("AI 修改结果 2", { exact: true })
     .fill("后续修改不可覆盖定稿。");

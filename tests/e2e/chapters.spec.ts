@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-test("blank writing, freely named chapters, rename, drag, two-stage deletion, autosave and full backup", async ({
+test("blank writing, freely named chapters, rename, drag, one-confirmation recycling, autosave and full backup", async ({
   page,
   browser,
 }) => {
@@ -49,25 +49,21 @@ test("blank writing, freely named chapters, rename, drag, two-stage deletion, au
     .getByRole("button", { name: "章节菜单 雨の余白", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "删除章节", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "继续检查", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByLabel("接收场景的章节", { exact: true })
-    .selectOption({ label: "帰り道" });
-  await page.getByRole("button", { name: "继续检查", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByLabel("接收场景的章节")).toHaveCount(0);
   await page.getByRole("button", { name: "取消删除", exact: true }).click();
   await expect(page.locator(".chapter-name")).toHaveCount(2);
   await page
     .getByRole("button", { name: "章节菜单 雨の余白", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "删除章节", exact: true }).click();
-  await page
-    .getByLabel("接收场景的章节", { exact: true })
-    .selectOption({ label: "帰り道" });
-  await page.getByRole("button", { name: "继续检查", exact: true }).click();
   await page.getByRole("button", { name: "确认删除章节", exact: true }).click();
   await expect(page.locator(".chapter-name")).toHaveCount(1);
+  await page.getByText("章节回收站 · 1 项", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "恢复章节 雨の余白", exact: true })
+    .click();
+  await expect(page.locator(".chapter-name")).toHaveCount(2);
   await page.locator(".scene-select").click();
   await expect(page.getByLabel("场景修改稿", { exact: true })).toHaveValue(
     "彼：おはよう。\n\n她：早上好。",
@@ -78,12 +74,12 @@ test("blank writing, freely named chapters, rename, drag, two-stage deletion, au
     "彼：おはよう。\n\n她：早上好。",
   );
   await page
-    .getByRole("button", { name: "章节菜单 帰り道", exact: true })
+    .getByRole("button", { name: "章节菜单 雨の余白", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "复制章节", exact: true }).click();
-  await expect(page.locator(".chapter-name")).toHaveCount(2);
+  await expect(page.locator(".chapter-name")).toHaveCount(3);
   await page
-    .getByRole("button", { name: "折叠章节 帰り道（副本）", exact: true })
+    .getByRole("button", { name: "折叠章节 雨の余白（副本）", exact: true })
     .click();
   await expect(page.locator(".scene-select")).toHaveCount(1);
   await page.locator(".scene-select").click();
@@ -108,7 +104,7 @@ test("blank writing, freely named chapters, rename, drag, two-stage deletion, au
   expect(backup.script.scenes[0].id).toBe(before.script.scenes[0].id);
   expect(backup.script.chapters[0].name).toBe("帰り道");
   expect(backup.script.synopsis).toBe("日本語と中文");
-  expect(backup.script.chapters[1].collapsed).toBe(true);
+  expect(backup.script.chapters[2].collapsed).toBe(true);
   expect(backup.script.scenes[1].id).not.toBe(backup.script.scenes[0].id);
   const phone = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -125,7 +121,7 @@ test("blank writing, freely named chapters, rename, drag, two-stage deletion, au
     await expect(mobile.locator(".toast")).toContainText("项目快照已导入");
     await mobile.getByRole("button", { name: "剧本", exact: true }).click();
     await expect(mobile.locator(".reader-content")).toContainText(
-      "帰り道（副本）",
+      "雨の余白（副本）",
     );
     await expect(mobile.locator(".reader-content")).toContainText("雨の日");
   } finally {

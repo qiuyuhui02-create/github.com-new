@@ -4544,3 +4544,171 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+/* aikari writing studio: quiet native editors, one AI platform at a time. */
+.screenplay-studio .script-layout {
+  grid-template-columns: minmax(210px, 1fr) minmax(0, 3fr);
+  gap: 20px;
+}
+.wide-scene-editor {
+  padding: 24px;
+}
+.writing-more {
+  margin: 12px 0;
+}
+.writing-more .writing-tool-tabs {
+  margin: 16px 0;
+}
+.screenplay-studio textarea,
+.screenplay-studio pre,
+.screenplay-studio input {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+.screenplay-studio textarea {
+  cursor: text;
+  resize: vertical;
+}
+.ai-topbar,
+.ai-actions,
+.editor-source-label,
+.recycle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ai-topbar {
+  margin-bottom: 20px;
+}
+.ai-topbar .platform-tabs {
+  gap: 18px;
+}
+.ai-topbar .platform-tabs button {
+  font-size: 14px;
+  padding: 10px 4px;
+}
+.ai-actions {
+  justify-content: flex-start;
+  margin: 12px 0 20px;
+  gap: 8px;
+}
+.ai-actions select {
+  width: auto;
+  max-width: 100%;
+}
+.ai-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+}
+.ai-editor-layout.dual {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ai-editor-layout section {
+  min-width: 0;
+}
+.editor-source-label {
+  min-height: 42px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #354d48;
+}
+.editor-source-label select {
+  max-width: 240px;
+}
+.ai-writing-studio .ai-large-editor {
+  display: block;
+  width: 100%;
+  min-height: 450px;
+  height: 58dvh;
+  resize: vertical;
+  font-size: 16px;
+  line-height: 1.95;
+  padding: 24px;
+  border: 1px solid #e4e9e1;
+  border-radius: 12px;
+  background: #fdfdf9;
+  color: #354d48;
+  font-family: inherit;
+  letter-spacing: 0.015em;
+}
+.ai-large-editor:focus {
+  outline: 2px solid #b5d8c7;
+  outline-offset: 2px;
+}
+.ai-large-editor[readonly] {
+  background: #f6f7f2;
+}
+.ai-more {
+  margin-top: 20px;
+  border-top: 1px solid #e5eade;
+  padding-top: 16px;
+}
+.ai-more > label {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+.ai-more > button {
+  margin: 12px 12px 0 0;
+}
+.selection-hint {
+  display: block;
+  margin-top: 8px;
+  color: #658074;
+  min-height: 20px;
+}
+.ai-writing-studio.focus-mode {
+  position: fixed;
+  inset: 16px;
+  z-index: 90;
+  padding: 26px 36px;
+  overflow: auto;
+  background: #faf9f5;
+  border-radius: 18px;
+  box-shadow: 0 8px 80px #354d4830;
+}
+.ai-writing-studio.focus-mode .ai-large-editor {
+  height: 68dvh;
+}
+.chapter-recycle .recycle-row {
+  padding: 16px 0;
+  border-bottom: 1px solid #e5eade;
+}
+.brand > span {
+  text-transform: none;
+}
+@media (max-width: 1050px) {
+  .screenplay-studio .script-layout {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+  .ai-editor-layout.dual {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .screenplay-studio .script-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ai-writing-studio.focus-mode {
+    inset: 0;
+    padding: 20px 14px;
+    border-radius: 0;
+  }
+  .ai-actions {
+    align-items: stretch;
+  }
+}
+.wide-scene-editor .ai-writing-studio:not(.focus-mode) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.ai-editor-layout .editor-source-label {
+  height: 72px;
+  min-height: 72px;
+  align-content: center;
+}

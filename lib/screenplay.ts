@@ -1,4 +1,4 @@
-import type { ScriptChapter } from "./screenplay-structure";
+import type { ScriptChapter, ArchivedChapter } from "./screenplay-structure";
 import type { Studio, Shot } from "./model";
 export type ScriptLanguage = "中文" | "日本語";
 export type ScriptVersion = {
@@ -35,6 +35,7 @@ export type Screenplay = {
   sourceMode?: "blank" | "imported";
   chapters?: ScriptChapter[];
   archivedScenes?: ScriptScene[];
+  archivedChapters?: ArchivedChapter[];
   revisionInstructions?: string;
   original: { text: string; language: ScriptLanguage; at: string };
   scenes: ScriptScene[];
@@ -66,8 +67,8 @@ export function importScreenplay(
     throw Error("请输入 20 万字以内的剧本");
   const at = new Date().toISOString();
   const scenes = splitScenes(text);
-  if (scenes.some((s) => s.text.length > 50000))
-    throw Error("单场超过 5 万字，请用场景标题拆分");
+  if (scenes.some((s) => s.text.length > 200000))
+    throw Error("单场超过 20 万字，请用场景标题拆分");
   if (scenes.length > 500) throw Error("场景数超过 500，请拆分剧本");
   return {
     original: { text, language, at },
@@ -92,7 +93,7 @@ export function editDraft(
   checkpoint = false,
   model = "人工修改",
 ): ScriptScene {
-  if (text.length > 50000) throw Error("单场剧本超过 5 万字");
+  if (text.length > 200000) throw Error("单场剧本超过 20 万字");
   const versions =
     checkpoint && scene.versions.at(-1)?.text !== scene.draft
       ? [
@@ -184,8 +185,8 @@ export function lineDiff(before: string, after: string) {
   }));
 }
 export function confirmScene(scene: ScriptScene, text: string): ScriptScene {
-  if (!text.trim() || text.length > 50000)
-    throw Error("定稿内容不能为空或超过 5 万字");
+  if (!text.trim() || text.length > 200000)
+    throw Error("定稿内容不能为空或超过 20 万字");
   if (scene.final?.text === text) return { ...scene, status: "已定稿" };
   const history = scene.final
     ? [...scene.finalHistory, scene.final]
@@ -297,23 +298,23 @@ export function validateScreenplay(x: unknown): x is Screenplay {
             typeof c.model === "string" &&
             c.model.length <= 100 &&
             typeof c.text === "string" &&
-            c.text.length <= 50000,
+            c.text.length <= 200000,
         ))) &&
     typeof v.original === "string" &&
     (v.mergeCandidate === undefined ||
       (typeof v.mergeCandidate === "string" &&
-        v.mergeCandidate.length <= 50000)) &&
+        v.mergeCandidate.length <= 200000)) &&
     (v.draftUndo === undefined ||
       (Array.isArray(v.draftUndo) &&
         v.draftUndo.length <= 100 &&
         v.draftUndo.every(
-          (t) => typeof t === "string" && t.length <= 50000,
+          (t) => typeof t === "string" && t.length <= 200000,
         ))) &&
     (v.draftEditBase === undefined ||
       (typeof v.draftEditBase === "string" &&
-        v.draftEditBase.length <= 50000)) &&
+        v.draftEditBase.length <= 200000)) &&
     typeof v.draft === "string" &&
-    v.draft.length <= 50000 &&
+    v.draft.length <= 200000 &&
     Number.isSafeInteger(v.draftRevision) &&
     v.draftRevision > 0 &&
     ["待修改", "待确认", "已定稿"].includes(v.status) &&
@@ -351,7 +352,8 @@ export function validateScreenplay(x: unknown): x is Screenplay {
         s.archivedScenes.every(validScene) &&
         new Set([...s.scenes, ...s.archivedScenes].map((v) => v.id)).size ===
           s.scenes.length + s.archivedScenes.length)) &&
-    validChapters(s)
+    validChapters(s) &&
+    validArchivedChapters(s, validScene)
   );
 }
 
@@ -384,4 +386,43 @@ function validChapters(s: Screenplay) {
     }
   }
   return sceneIds.size === s.scenes.length;
+}
+
+function validArchivedChapters(
+  s: Screenplay,
+  validScene: (v: ScriptScene) => unknown,
+) {
+  if (s.archivedChapters === undefined) return true;
+  if (!Array.isArray(s.archivedChapters) || s.archivedChapters.length > 500)
+    return false;
+  const chapterIds = new Set(
+      s.chapters?.map((c) => c.id) || ["legacy-unfiled"],
+    ),
+    sceneIds = new Set(
+      [...s.scenes, ...(s.archivedScenes || [])].map((v) => v.id),
+    );
+  let count = 0;
+  for (const e of s.archivedChapters) {
+    if (
+      !e ||
+      !e.chapter ||
+      !Array.isArray(e.scenes) ||
+      (count += e.scenes.length) > 500 ||
+      !e.scenes.every(validScene) ||
+      !Number.isSafeInteger(e.index) ||
+      e.index < 0 ||
+      !Number.isFinite(Date.parse(e.at)) ||
+      (e.beforeId !== undefined && typeof e.beforeId !== "string") ||
+      (e.afterId !== undefined && typeof e.afterId !== "string") ||
+      chapterIds.has(e.chapter.id) ||
+      !validChapters({ ...s, chapters: [e.chapter], scenes: e.scenes })
+    )
+      return false;
+    chapterIds.add(e.chapter.id);
+    for (const v of e.scenes) {
+      if (sceneIds.has(v.id)) return false;
+      sceneIds.add(v.id);
+    }
+  }
+  return true;
 }

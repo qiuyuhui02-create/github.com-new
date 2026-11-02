@@ -3,7 +3,7 @@ import { parseAuthCallback } from "@/lib/auth/parameters";
 import ConfirmEmail from "@/components/auth/confirm-email";
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "确认登录 · FRAMEWORK Studio",
+  title: "确认登录 · aikari",
   robots: { index: false, follow: false },
 };
 export default async function ConfirmPage({

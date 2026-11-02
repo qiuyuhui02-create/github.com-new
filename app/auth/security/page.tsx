@@ -4,7 +4,7 @@ import { canSetPassword } from "@/lib/auth/passwords";
 import SetPassword from "@/components/auth/set-password";
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "账号安全 · FRAMEWORK Studio",
+  title: "账号安全 · aikari",
   robots: { index: false, follow: false },
 };
 export default async function SecurityPage() {
@@ -22,7 +22,7 @@ export default async function SecurityPage() {
   return (
     <main className="auth-shell">
       <section className="panel">
-        <div className="eyebrow">FRAMEWORK STUDIO</div>
+        <div className="eyebrow">aikari</div>
         <h1>账号安全</h1>
         <p className="help">当前邮箱：{user.email || "未提供邮箱"}</p>
         {canSetPassword(user) ? (

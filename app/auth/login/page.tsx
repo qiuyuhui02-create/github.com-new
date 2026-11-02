@@ -2,7 +2,7 @@ import { authReason } from "@/lib/auth/messages";
 import LoginShell from "@/components/auth/login-shell";
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "邮箱登录 · FRAMEWORK Studio",
+  title: "邮箱登录 · aikari",
   robots: { index: false, follow: false },
 };
 export default async function LoginPage({

@@ -24,13 +24,14 @@ test("script original, draft autosave, partial confirmation, final history and s
     page.getByRole("button", { name: "从本场定稿生成分镜草稿" }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "从本场定稿生成分镜草稿" }).click();
-  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
   await page.getByLabel("场景修改稿").fill("林：这一版仍在修改中。");
   await page.getByRole("button", { name: "确认定稿", exact: true }).click();
   await expect(page.locator(".final-text")).toHaveText(
     "林：这是一句人工确认的台词。",
   );
-  await page.getByRole("button", { name: "编写剧本", exact: true }).click();
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
+  await page.getByText("更多：原稿、差异与历史", { exact: true }).click();
   await page.getByRole("button", { name: "原始剧本", exact: true }).click();
   await expect(
     page.locator(".scene-editor .screenplay-text:visible"),

@@ -400,6 +400,28 @@ export function cloudMetadata(data: Studio): Studio {
         at: data.script.original.at,
       },
       scenes: data.script.scenes.map(copyScene),
+      ...(data.script.archivedChapters
+        ? {
+            archivedChapters: data.script.archivedChapters.map((e) => ({
+              chapter: {
+                id: e.chapter.id,
+                name: e.chapter.name,
+                sceneIds: [...e.chapter.sceneIds],
+                ...(e.chapter.collapsed !== undefined
+                  ? { collapsed: e.chapter.collapsed }
+                  : {}),
+                ...(e.chapter.originalText !== undefined
+                  ? { originalText: e.chapter.originalText }
+                  : {}),
+              },
+              scenes: e.scenes.map(copyScene),
+              index: e.index,
+              at: e.at,
+              ...(e.beforeId !== undefined ? { beforeId: e.beforeId } : {}),
+              ...(e.afterId !== undefined ? { afterId: e.afterId } : {}),
+            })),
+          }
+        : {}),
       ...(data.script.archivedScenes
         ? { archivedScenes: data.script.archivedScenes.map(copyScene) }
         : {}),

@@ -95,7 +95,7 @@ export default function MobileReader({
     <main className="mobile-reader">
       <header className="reader-header">
         <a href="/" className="reader-brand">
-          FRAMEWORK <small>STUDIO / 随身创作手册</small>
+          aikari <small>随身创作手册</small>
         </a>
         <span className="tag">只读查看</span>
       </header>

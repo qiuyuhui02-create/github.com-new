@@ -137,6 +137,91 @@ export function removeChapter(
       ),
   );
 }
+export type ArchivedChapter = {
+  chapter: ScriptChapter;
+  scenes: ScriptScene[];
+  index: number;
+  beforeId?: string;
+  afterId?: string;
+  at: string;
+};
+export function archiveChapter(
+  script: Screenplay,
+  chapterId: string,
+): Screenplay {
+  const chapters = chaptersOf(script),
+    index = chapters.findIndex((c) => c.id === chapterId),
+    chapter = chapters[index];
+  if (!chapter) throw Error("章节不存在");
+  const scenes = chapter.sceneIds.map((id) =>
+    script.scenes.find((s) => s.id === id)!,
+  );
+  if (
+    (script.archivedChapters?.length || 0) >= 500 ||
+    (script.archivedChapters || []).reduce((n, c) => n + c.scenes.length, 0) +
+      scenes.length >
+      500
+  )
+    throw Error("章节回收站已达上限，请先导出备份");
+  return {
+    ...arranged(
+      script,
+      chapters.filter((c) => c.id !== chapterId),
+      script.scenes.filter((s) => !chapter.sceneIds.includes(s.id)),
+    ),
+    archivedChapters: [
+      ...(script.archivedChapters || []),
+      {
+        chapter: structuredClone(chapter),
+        scenes: structuredClone(scenes),
+        index,
+        ...(chapters[index + 1] ? { beforeId: chapters[index + 1].id } : {}),
+        ...(chapters[index - 1] ? { afterId: chapters[index - 1].id } : {}),
+        at: new Date().toISOString(),
+      },
+    ],
+  };
+}
+export function restoreChapter(
+  script: Screenplay,
+  chapterId: string,
+): Screenplay {
+  const entry = script.archivedChapters?.find(
+    (c) => c.chapter.id === chapterId,
+  );
+  if (!entry) throw Error("回收章节不存在");
+  const chapters = chaptersOf(script);
+  if (
+    chapters.some((c) => c.id === chapterId) ||
+    entry.scenes.some(
+      (s) =>
+        script.scenes.some((v) => v.id === s.id) ||
+        (script.archivedScenes || []).some((v) => v.id === s.id),
+    )
+  )
+    throw Error("存在相同 ID，已阻止覆盖");
+  if (
+    chapters.length >= 500 ||
+    script.scenes.length + entry.scenes.length > 500
+  )
+    throw Error("活动章节或场景已达上限，请先导出备份");
+  const before = chapters.findIndex((c) => c.id === entry.beforeId),
+    after = chapters.findIndex((c) => c.id === entry.afterId);
+  const index =
+    before >= 0
+      ? before
+      : after >= 0
+        ? after + 1
+        : Math.min(entry.index, chapters.length);
+  return {
+    ...arranged(
+      script,
+      [...chapters.slice(0, index), entry.chapter, ...chapters.slice(index)],
+      [...script.scenes, ...entry.scenes],
+    ),
+    archivedChapters: script.archivedChapters!.filter((c) => c !== entry),
+  };
+}
 export function duplicateChapter(script: Screenplay, chapterId: string) {
   const chapters = chaptersOf(script),
     source = chapters.find((c) => c.id === chapterId);
