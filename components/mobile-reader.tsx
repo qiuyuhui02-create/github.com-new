@@ -95,7 +95,7 @@ export default function MobileReader({
     <main className="mobile-reader">
       <header className="reader-header">
         <a href="/" className="reader-brand">
-          FRAMEWORK <small>STUDIO / 随身创作手册</small>
+          aikari <small>随身创作手册</small>
         </a>
         <span className="tag">只读查看</span>
       </header>
@@ -317,6 +317,20 @@ export default function MobileReader({
         )}
         {tab === "剧本" && (
           <>
+            {data.script?.title && (
+              <section className="panel">
+                <h2>{data.script.title}</h2>
+                <p>{data.script.synopsis}</p>
+              </section>
+            )}
+            {data.script?.revisionInstructions && (
+              <details className="panel">
+                <summary>统一修改要求（手动工作流）</summary>
+                <p className="reader-text">
+                  {data.script.revisionInstructions}
+                </p>
+              </details>
+            )}
             {!data.script && (
               <p className="empty">
                 快照尚未包含剧本，请先在 Mac 创作并重新导出。
@@ -335,6 +349,11 @@ export default function MobileReader({
               .map((s) => (
                 <article className="panel" key={s.id}>
                   <span className="tag">{s.status}</span>
+                  <p className="help">
+                    {data.script?.chapters?.find((c) =>
+                      c.sceneIds.includes(s.id),
+                    )?.name || "未分组场景"}
+                  </p>
                   <h2>{s.heading}</h2>
                   <h3>人工确认剧本</h3>
                   <pre className="reader-text">
@@ -459,6 +478,14 @@ export default function MobileReader({
                       <summary>首尾帧与参考素材</summary>
                       <p>首帧：{p.job.firstFrame || "未填写"}</p>
                       <p>尾帧：{p.job.lastFrame || "未填写"}</p>
+                      <p>
+                        分镜图：
+                        {p.job.storyboardReference ||
+                          "未登记，不自动使用分镜参考图"}
+                      </p>
+                      <p className="reader-text">
+                        人物图：{p.job.characterReferences || "未登记"}
+                      </p>
                       <p className="reader-text">{p.job.references}</p>
                       <p>
                         {p.job.assets

@@ -15,7 +15,7 @@ export default function ConfirmEmail({
   return (
     <main className="auth-shell">
       <section className="panel">
-        <div className="eyebrow">FRAMEWORK STUDIO</div>
+        <div className="eyebrow">aikari</div>
         <h1>确认邮箱登录</h1>
         <p className="help">
           请仅在这封邮件属于你、且你刚刚发起登录时继续。打开页面不会消耗令牌；点击下面按钮才验证。

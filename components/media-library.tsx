@@ -406,7 +406,7 @@ export default function MediaLibrary({
       </div>
       <div className="panel">
         <h3>目录约定</h3>
-        <pre className="directory-tree">{`FRAMEWORK-Project/\n  assets/characters/    人物\n  assets/environments/  场景\n  assets/props/         道具\n  references/          参考图\n  storyboards/         分镜图\n  videos/generated/    生成视频\n  videos/final/        最终/4K视频\n  scripts/             剧本导出\n  backups/             JSON清单与迁移报告\n每项素材：<目录>/<文件ID>/v<版本号>/<文件名>`}</pre>
+        <pre className="directory-tree">{`aikari-Project/\n  assets/characters/    人物\n  assets/environments/  场景\n  assets/props/         道具\n  references/          参考图\n  storyboards/         分镜图\n  videos/generated/    生成视频\n  videos/final/        最终/4K视频\n  scripts/             剧本导出\n  backups/             JSON清单与迁移报告\n每项素材：<目录>/<文件ID>/v<版本号>/<文件名>`}</pre>
         <p className="help">
           目录仅为新项目示例，不要求调整现有 SSD 目录。Windows
           用文件资源管理器备份素材根目录，保留相对结构；Mac 只需管理项目

@@ -19,7 +19,7 @@ export default function LoginShell({
   return (
     <main className="auth-shell">
       <section className="panel">
-        <div className="eyebrow">FRAMEWORK STUDIO</div>
+        <div className="eyebrow">aikari</div>
         <h1>账号登录</h1>
         <EmailLogin
           reason={error}

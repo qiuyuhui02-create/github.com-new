@@ -7,8 +7,9 @@ test("script original, draft autosave, partial confirmation, final history and s
   const raw =
     "内景 修复室 — 夜\n\n林：记忆还在。\n\n外景 街道 — 夜\n\n雨落下。";
   await page.getByLabel("原始剧本导入").fill(raw);
+  await page.getByRole("button", { name: "预览拆分", exact: true }).click();
   await page.getByRole("button", { name: "保留原稿并建立场景" }).click();
-  await expect(page.locator(".scene-directory button")).toHaveCount(2);
+  await expect(page.locator(".scene-select")).toHaveCount(2);
   await page
     .getByLabel("场景修改稿")
     .fill("内景 修复室 — 夜\n\n林：我找到了记忆。");
@@ -16,19 +17,25 @@ test("script original, draft autosave, partial confirmation, final history and s
   await page.getByLabel("人工合并候选").fill("林：这是一句人工确认的台词。");
   page.on("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "人工确认并保存本场定稿" }).click();
+  await page
+    .getByText("从定稿批量建立文字分镜草稿（本地）", { exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "从本场定稿生成分镜草稿" }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "从本场定稿生成分镜草稿" }).click();
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
   await page.getByLabel("场景修改稿").fill("林：这一版仍在修改中。");
-  await page.getByRole("button", { name: "最终剧本", exact: true }).click();
+  await page.getByRole("button", { name: "确认定稿", exact: true }).click();
   await expect(page.locator(".final-text")).toHaveText(
     "林：这是一句人工确认的台词。",
   );
+  await page.getByRole("button", { name: "正文编辑", exact: true }).click();
+  await page.getByText("更多：原稿、差异与历史", { exact: true }).click();
   await page.getByRole("button", { name: "原始剧本", exact: true }).click();
-  await expect(page.locator(".screenplay-text")).toContainText(
-    "林：记忆还在。",
-  );
+  await expect(
+    page.locator(".scene-editor .screenplay-text:visible"),
+  ).toContainText("林：记忆还在。");
   await page.getByRole("button", { name: "分镜工作台", exact: true }).click();
   await expect(page.locator(".shot-warning")).toHaveCount(1);
   await page.reload();
@@ -36,6 +43,7 @@ test("script original, draft autosave, partial confirmation, final history and s
   await expect(page.getByLabel("场景修改稿")).toHaveValue(
     "林：这一版仍在修改中。",
   );
+  await page.getByRole("button", { name: "确认定稿", exact: true }).click();
   await expect(page.getByLabel("人工合并候选")).toHaveValue(
     "林：这是一句人工确认的台词。",
   );

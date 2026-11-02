@@ -76,6 +76,7 @@ import {
 } from "@/lib/cloud";
 import MobileReader from "@/components/mobile-reader";
 import { createSnapshot, editProject, timestamp } from "@/lib/snapshots";
+import { manualSceneShot, nextShotNumber, moveShot } from "@/lib/production";
 import CreativeSchedule from "@/components/creative-schedule";
 import VideoProduction from "@/components/video-production";
 import {
@@ -132,6 +133,12 @@ export default function StudioPage() {
     [priority, setPriority] = useState("高"),
     [taskDate, setTaskDate] = useState(today()),
     [cloudAt, setCloudAt] = useState("");
+  const [shotView, setShotView] = useState<"grid" | "nine">("grid"),
+    [shotPage, setShotPage] = useState(0);
+  const ninePage = Math.min(
+    shotPage,
+    Math.max(0, Math.ceil(data.shots.length / 9) - 1),
+  );
   const [readerMode, setReaderMode] = useState(false);
   useEffect(() => {
     setReaderMode(window.matchMedia("(max-width:760px)").matches);
@@ -440,10 +447,62 @@ export default function StudioPage() {
     setAsset(null);
     tell("资产已删除");
   };
+  async function uploadVideoReference(
+    jobId: string,
+    role:
+      | "firstFrame"
+      | "lastFrame"
+      | "storyboardReference"
+      | "characterReferences",
+    file: File,
+  ) {
+    const job = data.videoJobs?.find((j) => j.id === jobId);
+    if (!job) return;
+    if (
+      role !== "characterReferences" &&
+      job[role] &&
+      !confirm("替换此用途的参考图引用？原件与已保存版本不会删除。")
+    )
+      return;
+    const epoch = accountEpoch.current;
+    setBusy(true);
+    try {
+      const preview = await thumbnail(file),
+        entry = await describeFile(
+          file,
+          role === "storyboardReference" ? "分镜图" : "参考图",
+          { shotId: job.shotId },
+        );
+      if (accountEpoch.current !== epoch) return;
+      bindMedia(entry.id, file);
+      setData((current) =>
+        editProject(current, {
+          files: [...(current.files || []), entry],
+          previews: { ...current.previews, [entry.id]: preview },
+          videoJobs: current.videoJobs?.map((j) =>
+            j.id === jobId
+              ? {
+                  ...j,
+                  [role]:
+                    role === "characterReferences" && j.characterReferences
+                      ? j.characterReferences + "\n" + `local:${entry.id}`
+                      : `local:${entry.id}`,
+                }
+              : j,
+          ),
+        }),
+      );
+      tell("参考图已按用途保存到本地，未调用生成或上传 API");
+    } catch (e) {
+      tell((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const newShot = () =>
     setShot({
       id: uid(),
-      number: `SH-${String(data.shots.length + 1).padStart(3, "0")}`,
+      number: nextShotNumber(data.shots),
       title: "",
       size: "中景",
       duration: 4,
@@ -467,12 +526,12 @@ export default function StudioPage() {
       ) : (
         <div className="studio-shell" inert={busy || !ready}>
           <aside className="sidebar">
-            <a className="brand" href="/" aria-label="FRAMEWORK Studio 首页">
+            <a className="brand" href="/" aria-label="aikari 首页">
               <span className="brand-icon">
                 <Aperture size={26} />
               </span>
               <span>
-                FRAMEWORK<small>STUDIO / 创作无界</small>
+                aikari<small>个人电影创作手册</small>
               </span>
             </a>
             <div className="workspace-label">
@@ -685,6 +744,14 @@ export default function StudioPage() {
                 <ScriptWorkbench
                   key={userId || "demo"}
                   data={data}
+                  onCreateShot={(sceneId) => {
+                    try {
+                      setShot(manualSceneShot(data, sceneId));
+                      setPage("分镜工作台");
+                    } catch (e) {
+                      tell((e as Error).message);
+                    }
+                  }}
                   onChange={(d) => {
                     if (activeUser.current === userId) update(d);
                   }}
@@ -923,7 +990,15 @@ export default function StudioPage() {
                 />
               )}
               {page === "视频提示词与制作" && (
-                <VideoProduction data={data} onChange={update} tell={tell} />
+                <VideoProduction
+                  data={data}
+                  onChange={update}
+                  tell={tell}
+                  onReferenceFile={uploadVideoReference}
+                  renderReference={(src, alt) => (
+                    <AssetImage src={src} alt={alt} />
+                  )}
+                />
               )}
               {page.startsWith("分镜") && (
                 <>
@@ -938,68 +1013,178 @@ export default function StudioPage() {
                       {data.shots.reduce((n, x) => n + x.duration, 0)}s
                     </span>
                   </div>
-                  <div className="shot-grid">
-                    {data.shots.map((s, i) => (
-                      <article className="shot-card panel" key={s.id}>
-                        <button
-                          className="shot-visual"
-                          onClick={() => setShot(structuredClone(s))}
-                        >
-                          <AssetImage
-                            src={
-                              s.image ||
-                              data.assets.find((a) => a.id === s.assets[0])
-                                ?.image ||
-                              ""
-                            }
-                            alt={s.title}
-                          />
-                          <span>{s.number}</span>
-                          <b>{s.duration}s</b>
-                        </button>
-                        <div className="shot-content">
-                          <span className="eyebrow">
-                            SEQUENCE {String(i + 1).padStart(2, "0")}
-                          </span>
-                          <h3>{s.title}</h3>
-                          {shotNeedsReview(s, data) && (
-                            <p className="shot-warning">
-                              来源剧本已变化，镜头可能需要更新（未自动覆盖）
+                  <div className="shot-toolbar panel">
+                    <div className="button-row">
+                      <button
+                        className={
+                          shotView === "grid" ? "primary" : "secondary"
+                        }
+                        onClick={() => setShotView("grid")}
+                      >
+                        全部镜头
+                      </button>
+                      <button
+                        className={
+                          shotView === "nine" ? "primary" : "secondary"
+                        }
+                        onClick={() => setShotView("nine")}
+                      >
+                        九宫格总览
+                      </button>
+                    </div>
+                    <label>
+                      从已定稿场景手动新建
+                      <select
+                        aria-label="从已定稿场景手动新建"
+                        value=""
+                        onChange={(e) => {
+                          try {
+                            setShot(manualSceneShot(data, e.target.value));
+                          } catch (error) {
+                            tell((error as Error).message);
+                          }
+                        }}
+                      >
+                        <option value="">选择场景并编辑新镜头……</option>
+                        {data.script?.scenes
+                          .filter((s) => s.final && s.status === "已定稿")
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.heading}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <p className="help">
+                      参考图只供分镜规划，不会自动作为视频首帧或尾帧。
+                    </p>
+                  </div>
+                  {shotView === "nine" && (
+                    <div className="nine-pagination">
+                      <button
+                        className="secondary"
+                        disabled={ninePage === 0}
+                        onClick={() => setShotPage(ninePage - 1)}
+                      >
+                        上一组九宫格
+                      </button>
+                      <span>
+                        第 {ninePage + 1} /{" "}
+                        {Math.max(1, Math.ceil(data.shots.length / 9))} 组 ·
+                        每组 9 格
+                      </span>
+                      <button
+                        className="secondary"
+                        disabled={(ninePage + 1) * 9 >= data.shots.length}
+                        onClick={() => setShotPage(ninePage + 1)}
+                      >
+                        下一组九宫格
+                      </button>
+                    </div>
+                  )}
+                  <div
+                    className={`shot-grid ${shotView === "nine" ? "nine-grid" : ""}`}
+                  >
+                    {(shotView === "nine"
+                      ? data.shots.slice(ninePage * 9, ninePage * 9 + 9)
+                      : data.shots
+                    ).map((s, localIndex) => {
+                      const i =
+                        shotView === "nine"
+                          ? ninePage * 9 + localIndex
+                          : localIndex;
+                      return (
+                        <article className="shot-card panel" key={s.id}>
+                          <button
+                            className="shot-visual"
+                            onClick={() => setShot(structuredClone(s))}
+                          >
+                            <AssetImage
+                              src={
+                                s.image ||
+                                data.assets.find((a) => a.id === s.assets[0])
+                                  ?.image ||
+                                ""
+                              }
+                              alt={s.title}
+                            />
+                            <span>{s.number}</span>
+                            <b>{s.duration}s</b>
+                          </button>
+                          <div className="shot-content">
+                            <span className="eyebrow">
+                              SEQUENCE {String(i + 1).padStart(2, "0")}
+                            </span>
+                            <h3>{s.title}</h3>
+                            {shotNeedsReview(s, data) && (
+                              <p className="shot-warning">
+                                来源剧本已变化，镜头可能需要更新（未自动覆盖）
+                              </p>
+                            )}
+                            <p>
+                              {s.size} / {s.camera} / {s.movement}
                             </p>
-                          )}
-                          <p>
-                            {s.size} / {s.camera} / {s.movement}
-                          </p>
-                          <div className="shot-links">
-                            {s.assets.map((id) => (
-                              <span key={id}>
-                                {data.assets.find((a) => a.id === id)?.name ||
-                                  "资产缺失"}
-                              </span>
-                            ))}
+                            <div className="shot-links">
+                              {s.assets.map((id) => (
+                                <span key={id}>
+                                  {data.assets.find((a) => a.id === id)?.name ||
+                                    "资产缺失"}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="shot-actions">
+                              <button
+                                className="text-button"
+                                onClick={() => setShot(structuredClone(s))}
+                              >
+                                编辑镜头 <ArrowUpRight size={13} />
+                              </button>
+                              <button
+                                className="text-button"
+                                disabled={i === 0}
+                                onClick={() => {
+                                  update({
+                                    shots: moveShot(data.shots, s.id, -1),
+                                  });
+                                }}
+                              >
+                                前移
+                              </button>
+                              <button
+                                className="text-button"
+                                disabled={i === data.shots.length - 1}
+                                onClick={() =>
+                                  update({
+                                    shots: moveShot(data.shots, s.id, 1),
+                                  })
+                                }
+                              >
+                                后移
+                              </button>
+                            </div>
                           </div>
-                          <div className="shot-actions">
-                            <button
-                              className="text-button"
-                              onClick={() => setShot(structuredClone(s))}
-                            >
-                              编辑镜头 <ArrowUpRight size={13} />
-                            </button>
-                            <button
-                              className="text-button"
-                              disabled={i === 0}
-                              onClick={() => {
-                                const a = [...data.shots];
-                                [a[i], a[i - 1]] = [a[i - 1], a[i]];
-                                update({ shots: a });
-                              }}
-                            >
-                              前移
-                            </button>
+                        </article>
+                      );
+                    })}
+                    {shotView === "nine" &&
+                      Array.from(
+                        {
+                          length:
+                            9 -
+                            data.shots.slice(ninePage * 9, ninePage * 9 + 9)
+                              .length,
+                        },
+                        (_, i) => (
+                          <div className="nine-placeholder" key={`empty-${i}`}>
+                            空镜位{" "}
+                            {ninePage * 9 +
+                              data.shots.slice(ninePage * 9, ninePage * 9 + 9)
+                                .length +
+                              i +
+                              1}
                           </div>
-                        </div>
-                      </article>
-                    ))}
+                        ),
+                      )}
                   </div>
                   {data.shots.length === 0 && (
                     <p className="empty">还没有分镜，点击“新建分镜”开始。</p>
@@ -1165,7 +1350,7 @@ export default function StudioPage() {
               )}
               <footer>
                 <span>
-                  <Aperture size={13} /> FRAMEWORK STUDIO{" "}
+                  <Aperture size={13} /> aikari{" "}
                   <em>从创意，到银幕。</em>
                 </span>
                 <span>
@@ -1467,7 +1652,12 @@ export default function StudioPage() {
                   >
                     <option value="">未关联场景</option>
                     {data.script?.scenes
-                      .filter((s) => s.final)
+                      .filter(
+                        (s) =>
+                          s.final &&
+                          (s.status === "已定稿" ||
+                            s.id === shot.sourceSceneId),
+                      )
                       .map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.heading}

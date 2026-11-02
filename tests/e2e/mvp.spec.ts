@@ -65,24 +65,39 @@ test("free local workflow: schedule, timer across tabs/reload, mood, three draft
     .fill(
       "内景 工作室 — 日\n\n角色：这是原始对白。\n\n外景 庭院 — 午后\n\n風が吹く。",
     );
+  await page.getByRole("button", { name: "预览拆分", exact: true }).click();
   await page.getByRole("button", { name: "保留原稿并建立场景" }).click();
-  for (let i = 1; i <= 3; i++)
+  await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
+  for (let i = 1; i <= 3; i++) {
+    await page
+      .getByRole("tab", {
+        name: ["ChatGPT", "Gemini", "Claude"][i - 1],
+        exact: true,
+      })
+      .click();
     await page
       .getByLabel(`AI 修改结果 ${i}`, { exact: true })
       .fill(`模型 ${i} 第一段。\n\n模型 ${i} 第二段。`);
-  await page
-    .getByRole("button", { name: "将结果 2 作为合并候选", exact: true })
-    .click();
+  }
+  await page.getByRole("tab", { name: "Gemini", exact: true }).click();
+  await page.getByText("更多：修改要求与版本", { exact: true }).click();
+  await page.getByRole("button", { name: "送入定稿候选", exact: true }).click();
+  await page.getByRole("button", { name: "确认定稿", exact: true }).click();
   await expect(page.getByLabel("人工合并候选", { exact: true })).toHaveValue(
     "模型 2 第一段。\n\n模型 2 第二段。",
   );
   page.on("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "人工确认并保存本场定稿" }).click();
+  await page
+    .getByText("从定稿批量建立文字分镜草稿（本地）", { exact: true })
+    .click();
   await page.getByRole("button", { name: "从本场定稿生成分镜草稿" }).click();
+  await page.getByRole("button", { name: "AI 版本对比", exact: true }).click();
+  await page.getByRole("tab", { name: "Gemini", exact: true }).click();
   await page
     .getByLabel("AI 修改结果 2", { exact: true })
     .fill("后续修改不可覆盖定稿。");
-  await page.getByRole("button", { name: "最终剧本", exact: true }).click();
+  await page.getByRole("button", { name: "确认定稿", exact: true }).click();
   await expect(page.locator(".final-text")).toContainText("模型 2 第一段。");
   await page
     .getByRole("button", { name: "视频提示词与制作", exact: true })

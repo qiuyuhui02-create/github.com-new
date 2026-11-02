@@ -1,14 +1,28 @@
 "use client";
 import { useState } from "react";
 import { Copy, Plus, Save } from "lucide-react";
-import { uid, type Studio } from "@/lib/model";
-import { safeVideoPath, type VideoJob } from "@/lib/workflow";
+import { type ReactNode } from "react";
+import { newVideoJob, recordVideoVersion } from "@/lib/production";
+import { type Studio } from "@/lib/model";
+import { type VideoJob } from "@/lib/workflow";
 const states = ["待生成", "生成中", "待审核", "已完成", "需重做"];
 export default function VideoProduction({
   data,
   onChange,
   tell,
+  onReferenceFile,
+  renderReference,
 }: {
+  onReferenceFile: (
+    jobId: string,
+    role:
+      | "firstFrame"
+      | "lastFrame"
+      | "storyboardReference"
+      | "characterReferences",
+    file: File,
+  ) => Promise<void>;
+  renderReference: (src: string, alt: string) => ReactNode;
   data: Studio;
   onChange: (s: Partial<Studio>) => void;
   tell: (s: string) => void;
@@ -25,24 +39,7 @@ export default function VideoProduction({
       });
   }
   function create(shotId: string) {
-    const shot = data.shots.find((s) => s.id === shotId);
-    if (!shot) return;
-    const j: VideoJob = {
-      id: uid(),
-      shotId,
-      prompt: shot.description || shot.title,
-      assets: [...shot.assets],
-      firstFrame: "",
-      lastFrame: "",
-      references: "",
-      duration: shot.duration,
-      ratio: "16:9",
-      movement: shot.movement,
-      model: "",
-      status: "待生成",
-      notes: "",
-      versions: [],
-    };
+    const j = newVideoJob(data, shotId);
     onChange({ videoJobs: [...jobs, j] });
     setSelected(j.id);
   }
@@ -133,21 +130,79 @@ export default function VideoProduction({
               复制视频 Prompt
             </button>
             <div className="form-grid">
-              <label>
-                首帧素材
-                <input
-                  value={job.firstFrame}
-                  placeholder="资产编号 / 文件名 / 相对路径"
-                  onChange={(e) => patch({ firstFrame: e.target.value })}
-                />
-              </label>
-              <label>
-                尾帧素材
-                <input
-                  value={job.lastFrame}
-                  onChange={(e) => patch({ lastFrame: e.target.value })}
-                />
-              </label>
+              {(
+                [
+                  ["firstFrame", "首帧素材"],
+                  ["lastFrame", "尾帧素材"],
+                  ["storyboardReference", "分镜图参考"],
+                  ["characterReferences", "人物参考图"],
+                ] as const
+              ).map(([role, label]) => (
+                <div className="video-reference-role" key={role}>
+                  <label>
+                    {label}
+                    <textarea
+                      aria-label={label}
+                      rows={2}
+                      value={job[role] || ""}
+                      onChange={(e) => patch({ [role]: e.target.value })}
+                      placeholder={
+                        role === "characterReferences"
+                          ? "每行一个人物图引用 / 文件名"
+                          : "独立填写，不自动从其他参考图复制"
+                      }
+                    />
+                  </label>
+                  <label className="upload-button">
+                    上传{label}
+                    <input
+                      aria-label={`上传${label}`}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (f) await onReferenceFile(job.id, role, f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {(job[role] || "")
+                    .split("\n")
+                    .filter(Boolean)
+                    .map((src, i) => (
+                      <div className="video-reference-preview" key={i}>
+                        {/^(local:|storage:|data:image\/|\/art\/)/.test(src) ? (
+                          renderReference(src, label)
+                        ) : (
+                          <small>仅登记文字引用 · 素材未连接</small>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ))}
+              <p className="help video-reference-note">
+                四类图片独立保存。分镜参考图只在明确选择或上传后登记到“分镜图参考”，不会自动成为首帧或尾帧。
+              </p>
+              <button
+                type="button"
+                className="secondary"
+                disabled={!data.shots.find((s) => s.id === job.shotId)?.image}
+                onClick={() => {
+                  const image = data.shots.find(
+                    (s) => s.id === job.shotId,
+                  )?.image;
+                  if (
+                    image &&
+                    (!job.storyboardReference ||
+                      confirm(
+                        "替换本任务的分镜图引用？首帧、尾帧和人物图保持不变。",
+                      ))
+                  )
+                    patch({ storyboardReference: image });
+                }}
+              >
+                仅登记此镜头的分镜图引用
+              </button>
               <label>
                 目标时长（秒）
                 <input
@@ -201,7 +256,7 @@ export default function VideoProduction({
               </label>
             </div>
             <label>
-              参考素材清单
+              其他参考素材清单（保留原有记录）
               <textarea
                 rows={3}
                 value={job.references}
@@ -260,26 +315,12 @@ export default function VideoProduction({
                 className="primary"
                 disabled={job.versions.length >= 100}
                 onClick={() => {
-                  if (path && !safeVideoPath(path))
-                    return tell(
-                      "只登记项目内真实相对路径，不接受盘符、绝对路径或上级目录",
-                    );
-                  if (!job.prompt.trim()) return tell("请先填写视频 Prompt");
-                  patch({
-                    versions: [
-                      ...job.versions,
-                      {
-                        id: uid(),
-                        model: job.model,
-                        prompt: job.prompt,
-                        status: job.status,
-                        filename,
-                        relativePath: path,
-                        notes: job.notes,
-                        at: new Date().toISOString(),
-                      },
-                    ],
-                  });
+                  try {
+                    const version = recordVideoVersion(job, filename, path);
+                    patch({ versions: [...job.versions, version] });
+                  } catch (e) {
+                    return tell((e as Error).message);
+                  }
                   setFilename("");
                   setPath("");
                   tell("生成版本已记录，未读取或上传视频");
@@ -300,6 +341,50 @@ export default function VideoProduction({
                 <code>{v.relativePath || "素材未连接"}</code>
                 <pre>{v.prompt}</pre>
                 <p>{v.notes}</p>
+                <dl className="version-reference-list">
+                  {(
+                    [
+                      ["firstFrame", "首帧"],
+                      ["lastFrame", "尾帧"],
+                      ["storyboardReference", "分镜图"],
+                      ["characterReferences", "人物图"],
+                      ["references", "其他参考"],
+                      ["ratio", "比例"],
+                      ["movement", "运镜"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div key={key}>
+                      <dt>{label}</dt>
+                      <dd>
+                        {v[key] === undefined
+                          ? "旧版本未记录此项"
+                          : v[key] || "未填写"}
+                      </dd>
+                    </div>
+                  ))}
+                  <div>
+                    <dt>时长</dt>
+                    <dd>
+                      {v.duration === undefined
+                        ? "旧版本未记录此项"
+                        : v.duration + " 秒"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>参考资产</dt>
+                    <dd>
+                      {v.assets === undefined
+                        ? "旧版本未记录此项"
+                        : v.assets
+                            .map(
+                              (id) =>
+                                data.assets.find((a) => a.id === id)?.name ||
+                                id,
+                            )
+                            .join(" / ") || "未选择"}
+                    </dd>
+                  </div>
+                </dl>
               </details>
             ))}
           </section>

@@ -4,6 +4,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: "http://127.0.0.1:3000",
+    timezoneId: "Asia/Shanghai",
     headless: true,
     launchOptions: {
       executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",

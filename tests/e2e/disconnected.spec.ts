@@ -57,6 +57,7 @@ test("management with disconnected media keeps seven assets, versions, links and
     await page
       .getByLabel("原始剧本导入")
       .fill("内景 工作室 — 夜\n\n角色：等待 Windows 制作。");
+    await page.getByRole("button", { name: "预览拆分", exact: true }).click();
     await page.getByRole("button", { name: "保留原稿并建立场景" }).click();
     await page.getByLabel("场景修改稿").fill("角色：可在 Mac 正常修改剧本。");
     await page.getByLabel("场景修改稿").blur();
