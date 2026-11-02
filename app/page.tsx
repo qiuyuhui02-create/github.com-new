@@ -75,7 +75,7 @@ import {
   verifiedClient,
 } from "@/lib/cloud";
 import MobileReader from "@/components/mobile-reader";
-import { createSnapshot, editProject, timestamp } from "@/lib/snapshots";
+import { editProject, timestamp } from "@/lib/snapshots";
 import { manualSceneShot, nextShotNumber, moveShot } from "@/lib/production";
 import CreativeSchedule from "@/components/creative-schedule";
 import VideoProduction from "@/components/video-production";
@@ -84,9 +84,14 @@ import {
   writeWorkspace,
   readTimer,
   changeTimer,
-  restoreTimer,
+  replaceWorkspace,
 } from "@/lib/persistence";
 import { thumbnail } from "@/lib/previews";
+import BackupImportDialog, {
+  BackupStatus,
+  useBackupReceipt,
+} from "@/components/backup-controls";
+import { backupJSON, readBackupFile } from "@/lib/backups";
 const PreviewContext = createContext<Record<string, string>>({});
 const modules = [
   { name: "创作日程", icon: CalendarDays },
@@ -152,7 +157,25 @@ export default function StudioPage() {
   const accountEpoch = useRef(0);
   const lastMirror = useRef<string | null>(null);
   const [saveProblem, setSaveProblem] = useState("");
+  const backupState = useBackupReceipt(cacheKey(userId), ready);
+  const [pendingImport, setPendingImport] = useState<{
+    data: Studio;
+    fileName: string;
+    epoch: number;
+  } | null>(null);
+  const [importBusy, setImportBusy] = useState(false),
+    [importError, setImportError] = useState("");
+
   const tell = (s: string) => setNotice(s);
+  useEffect(() => {
+    if (!importBusy) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [importBusy]);
   useEffect(() => {
     async function selectAccount(id: string | null, email: string) {
       if (activeUser.current === id && initialized) return;
@@ -171,6 +194,8 @@ export default function StudioPage() {
       setShot(null);
       setPrompt(null);
       setReport("");
+      setPendingImport(null);
+      setImportError("");
       let next = id ? emptyStudio() : structuredClone(seed),
         version = 0;
       try {
@@ -390,26 +415,63 @@ export default function StudioPage() {
       setBusy(false);
     }
   }
-  async function importSnapshot(d: Studio) {
-    if (busy || !ready) throw Error("请等待当前操作完成");
+  async function previewImport(file: File) {
+    if (busy || importBusy || !ready) return;
     const epoch = accountEpoch.current;
-    await writeWorkspace(
-      cacheKey(userId) + ":recovery",
-      JSON.stringify(snapshot()),
-    );
-    await restoreTimer(cacheKey(userId), d.timer || { entries: [] });
-    await writeWorkspace(
-      cacheKey(userId),
-      JSON.stringify(userId ? { data: d, version: cloudVersion } : d),
-    );
-    lastMirror.current = localStorage.getItem(cacheKey(userId));
-    if (accountEpoch.current !== epoch) throw Error("工作空间已变化，请重试");
-    clearMedia();
-    setData(d);
-    setSaveProblem("");
-    setStorageBlocked(false);
-    setCloudAt("");
-    tell("项目快照已导入，仅保存在当前设备");
+    try {
+      const incoming = await readBackupFile(file);
+      if (accountEpoch.current !== epoch) return;
+      setSettings(false);
+      setImportError("");
+      setPendingImport({ data: incoming, fileName: file.name, epoch });
+    } catch (e) {
+      tell(`导入失败：${(e as Error).message}`);
+    }
+  }
+  async function confirmImport() {
+    if (!pendingImport || importBusy || busy || !ready) return;
+    const pending = pendingImport,
+      epoch = accountEpoch.current,
+      key = cacheKey(userId);
+    if (pending.epoch !== epoch) {
+      setPendingImport(null);
+      return tell("工作空间已变化，请重新选择备份");
+    }
+    setImportBusy(true);
+    setImportError("");
+    try {
+      const recoveryRaw = storageBlocked
+        ? (await readWorkspace(key)) || JSON.stringify(data)
+        : backupJSON(snapshot());
+      await replaceWorkspace({
+        key,
+        raw: JSON.stringify(
+          userId ? { data: pending.data, version: cloudVersion } : pending.data,
+        ),
+        recoveryRaw,
+        timer: pending.data.timer || { entries: [] },
+        expectedMirror: lastMirror.current,
+        guard: () => accountEpoch.current === epoch,
+      });
+      if (accountEpoch.current !== epoch) return;
+      lastMirror.current = localStorage.getItem(key);
+      clearMedia();
+      setData(pending.data);
+      setStorageBlocked(false);
+      setSaveProblem("");
+      setCloudAt("");
+      setPendingImport(null);
+      tell(
+        readerMode
+          ? "项目快照已导入，仅保存在当前设备"
+          : "已导入项目，仅保存在当前设备；导入前副本已保留",
+      );
+    } catch (e) {
+      if (accountEpoch.current === epoch)
+        setImportError((e as Error).message || "本地存储不可用，原项目未修改");
+    } finally {
+      setImportBusy(false);
+    }
   }
   function snapshot(): Studio {
     const timer = readTimer(cacheKey(userId), data.timer || { entries: [] });
@@ -418,18 +480,20 @@ export default function StudioPage() {
       : data;
   }
   function exportData() {
+    if (!ready || importBusy) return tell("请等待项目载入或恢复完成");
     try {
       const raw = storageBlocked
         ? localStorage.getItem(cacheKey(userId)) || JSON.stringify(data)
-        : JSON.stringify(createSnapshot(snapshot()), null, 2);
+        : backupJSON(snapshot());
       downloadBlob(
         new Blob([raw], { type: "application/json" }),
         `framework-studio-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
       );
+      if (!storageBlocked) void backupState.generated(new Date().toISOString());
       tell(
         storageBlocked
-          ? "原始缓存已导出，请保留用于恢复排查"
-          : "项目快照已导出（包含私人日记，请妥善保管）",
+          ? "原始缓存已导出，请保留用于恢复排查；这不是已验证的完整项目备份"
+          : "项目快照已导出（包含私人日记与缩略图），请确认文件已保存；不含外部高清原图或视频",
       );
     } catch (e) {
       tell(`导出失败：${(e as Error).message}。请勿清理浏览器数据。`);
@@ -513,16 +577,27 @@ export default function StudioPage() {
   return (
     <PreviewContext.Provider value={data.previews || {}}>
       {readerMode ? (
-        <MobileReader
-          saveStatus={
-            storageBlocked ? "缓存异常，原数据未覆盖" : saveProblem || saveState
-          }
-          data={data}
-          onImport={importSnapshot}
-          onExport={exportData}
-          tell={tell}
-          onEdit={() => setReaderMode(false)}
-        />
+        ready ? (
+          <MobileReader
+            saveStatus={
+              storageBlocked
+                ? "缓存异常，原数据未覆盖"
+                : saveProblem || saveState
+            }
+            data={data}
+            onImportFile={previewImport}
+            backupStatus={
+              <BackupStatus state={backupState} onExport={exportData} />
+            }
+            onExport={exportData}
+            tell={tell}
+            onEdit={() => setReaderMode(false)}
+          />
+        ) : (
+          <main className="mobile-reader" role="status">
+            正在载入本机项目，请稍候…
+          </main>
+        )
       ) : (
         <div className="studio-shell" inert={busy || !ready}>
           <aside className="sidebar">
@@ -640,6 +715,7 @@ export default function StudioPage() {
                   手机查看模式
                 </button>
               </div>
+              <BackupStatus state={backupState} onExport={exportData} />
               <div className="breadcrumb">
                 项目工作台 <span>/</span> {page}
               </div>
@@ -1350,8 +1426,7 @@ export default function StudioPage() {
               )}
               <footer>
                 <span>
-                  <Aperture size={13} /> aikari{" "}
-                  <em>从创意，到银幕。</em>
+                  <Aperture size={13} /> aikari <em>从创意，到银幕。</em>
                 </span>
                 <span>
                   独立创作，自有宇宙 <span className="green-dot">●</span>
@@ -1963,43 +2038,10 @@ export default function StudioPage() {
                       type="file"
                       accept="application/json"
                       onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        try {
-                          if (f.size > 100 * 1024 * 1024)
-                            throw Error("文件超过 100MB");
-                          const importEpoch = accountEpoch.current;
-                          const d = parseStudio(JSON.parse(await f.text()));
-                          if (importEpoch !== accountEpoch.current) return;
-                          if (
-                            confirm(
-                              "导入将替换当前本地项目；建议先导出。系统会额外保留一份恢复前快照。是否继续？",
-                            )
-                          ) {
-                            await writeWorkspace(
-                              cacheKey(userId) + ":recovery",
-                              storageBlocked
-                                ? localStorage.getItem(cacheKey(userId)) || "{}"
-                                : JSON.stringify(snapshot()),
-                            );
-                            await restoreTimer(
-                              cacheKey(userId),
-                              d.timer || { entries: [] },
-                            );
-                            lastMirror.current = localStorage.getItem(
-                              cacheKey(userId),
-                            );
-                            setSaveProblem("");
-                            if (importEpoch !== accountEpoch.current) return;
-                            clearMedia();
-                            setStorageBlocked(false);
-                            setData(d);
-                            setCloudAt("");
-                            tell("已导入项目");
-                          }
-                        } catch (e) {
-                          tell(`导入失败：${(e as Error).message}`);
-                        }
+                        const input = e.currentTarget,
+                          file = input.files?.[0];
+                        if (file) await previewImport(file);
+                        input.value = "";
                       }}
                     />
                   </label>
@@ -2031,6 +2073,20 @@ export default function StudioPage() {
             </Modal>
           )}
         </div>
+      )}
+      {pendingImport && (
+        <BackupImportDialog
+          data={pendingImport.data}
+          current={data}
+          fileName={pendingImport.fileName}
+          busy={importBusy}
+          error={importError}
+          onCancel={() => {
+            setPendingImport(null);
+            setImportError("");
+          }}
+          onConfirm={() => void confirmImport()}
+        />
       )}
       {readerMode && notice && (
         <div className="toast" role="status">

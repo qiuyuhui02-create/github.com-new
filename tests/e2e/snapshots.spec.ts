@@ -81,13 +81,15 @@ test("Mac snapshot imports privately on phone, confirms replacement, shows versi
       mimeType: "application/json",
       buffer: Buffer.from(raw),
     };
-    mobile.once("dialog", (d) => d.dismiss());
     await mobile.getByLabel("手机导入项目快照").setInputFiles(file);
+    await mobile.getByRole("button", { name: "取消导入", exact: true }).click();
     await expect(mobile.locator(".reader-hero")).not.toContainText(
       data.projectName,
     );
-    mobile.once("dialog", (d) => d.accept());
     await mobile.getByLabel("手机导入项目快照").setInputFiles(file);
+    await mobile
+      .getByRole("button", { name: "确认覆盖当前本地项目", exact: true })
+      .click();
     await expect(mobile.locator(".reader-hero")).toContainText(
       data.projectName,
     );
