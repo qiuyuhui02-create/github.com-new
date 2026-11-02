@@ -9,6 +9,7 @@ import {
 } from "@/lib/backups";
 import { timestamp } from "@/lib/snapshots";
 import type { Studio } from "@/lib/model";
+import { buildInfo } from "@/lib/build-info";
 import { ScriptDialog } from "./screenplay/chapter-directory";
 export function useBackupReceipt(workspace: string, enabled: boolean) {
   const [receipt, setReceipt] = useState<BackupReceipt | null>(null),
@@ -78,9 +79,11 @@ export function useBackupReceipt(workspace: string, enabled: boolean) {
 export function BackupStatus({
   state,
   onExport,
+  onRestore,
 }: {
   state: ReturnType<typeof useBackupReceipt>;
   onExport: () => void;
+  onRestore: () => void;
 }) {
   const pending =
     state.receipt?.generatedAt &&
@@ -102,6 +105,21 @@ export function BackupStatus({
       <button className="secondary" onClick={onExport}>
         一键备份
       </button>
+      <button className="secondary" onClick={onRestore}>
+        恢复备份
+      </button>
+      <details className="backup-build-info">
+        <summary>恢复流程与页面版本</summary>
+        <span>恢复流程：v2 · 必须先预览再确认</span>
+        <span data-testid="backup-build-commit">
+          页面提交：{buildInfo.commit}
+        </span>
+        <span>分支：{buildInfo.branch}</span>
+        <p>
+          若仍出现原生“导入将替换…”确认框，则不是本页的新版恢复入口。请核对 PR
+          #11 的 Preview 链接，不要清除站点数据。
+        </p>
+      </details>
       {pending && (
         <div className="backup-pending">
           <span>
@@ -128,6 +146,7 @@ export default function BackupImportDialog({
   fileName,
   busy,
   error,
+  warning,
   onCancel,
   onConfirm,
 }: {
@@ -136,6 +155,7 @@ export default function BackupImportDialog({
   fileName: string;
   busy: boolean;
   error: string;
+  warning?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -213,6 +233,7 @@ export default function BackupImportDialog({
             个素材引用没有可用缩略图，恢复后将显示占位图或“素材未连接”，不会假装原件已恢复。
           </p>
         )}
+        {warning && <p role="status">{warning}</p>}
         {error && (
           <p className="auth-error" role="alert">
             {error}

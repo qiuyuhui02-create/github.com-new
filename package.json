@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
-    "test:auth:e2e": "node tests/run-auth-e2e.mjs"
+    "test:auth:e2e": "node tests/run-auth-e2e.mjs",
+    "test:backup:webkit": "node tests/run-auth-e2e.mjs --config=playwright.webkit.config.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",

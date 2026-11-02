@@ -91,6 +91,7 @@ import BackupImportDialog, {
   BackupStatus,
   useBackupReceipt,
 } from "@/components/backup-controls";
+import { verifyBackupBuild } from "@/lib/build-info";
 import { backupJSON, readBackupFile } from "@/lib/backups";
 const PreviewContext = createContext<Record<string, string>>({});
 const modules = [
@@ -157,11 +158,16 @@ export default function StudioPage() {
   const accountEpoch = useRef(0);
   const lastMirror = useRef<string | null>(null);
   const [saveProblem, setSaveProblem] = useState("");
+  const restoreInput = useRef<HTMLInputElement>(null);
+  const importSequence = useRef(0);
+  const restoreInFlight = useRef(false);
   const backupState = useBackupReceipt(cacheKey(userId), ready);
   const [pendingImport, setPendingImport] = useState<{
     data: Studio;
     fileName: string;
     epoch: number;
+    requestId: number;
+    warning: string;
   } | null>(null);
   const [importBusy, setImportBusy] = useState(false),
     [importError, setImportError] = useState("");
@@ -194,6 +200,7 @@ export default function StudioPage() {
       setShot(null);
       setPrompt(null);
       setReport("");
+      importSequence.current++;
       setPendingImport(null);
       setImportError("");
       let next = id ? emptyStudio() : structuredClone(seed),
@@ -417,19 +424,51 @@ export default function StudioPage() {
   }
   async function previewImport(file: File) {
     if (busy || importBusy || !ready) return;
-    const epoch = accountEpoch.current;
+    const epoch = accountEpoch.current,
+      requestId = ++importSequence.current;
     try {
-      const incoming = await readBackupFile(file);
-      if (accountEpoch.current !== epoch) return;
+      const [incoming, verified] = await Promise.all([
+        readBackupFile(file),
+        verifyBackupBuild(),
+      ]);
+      if (
+        accountEpoch.current !== epoch ||
+        importSequence.current !== requestId
+      )
+        return;
       setSettings(false);
       setImportError("");
-      setPendingImport({ data: incoming, fileName: file.name, epoch });
+      setPendingImport({
+        data: incoming,
+        fileName: file.name,
+        epoch,
+        requestId,
+        warning: verified.warning,
+      });
     } catch (e) {
-      tell(`导入失败：${(e as Error).message}`);
+      if (
+        accountEpoch.current === epoch &&
+        importSequence.current === requestId
+      )
+        tell(`导入失败：${(e as Error).message}`);
     }
   }
-  async function confirmImport() {
-    if (!pendingImport || importBusy || busy || !ready) return;
+  function cancelImport() {
+    importSequence.current++;
+    setPendingImport(null);
+    setImportError("");
+  }
+  async function confirmImport(requestId: number) {
+    if (
+      !pendingImport ||
+      pendingImport.requestId !== requestId ||
+      importSequence.current !== requestId ||
+      restoreInFlight.current ||
+      importBusy ||
+      busy ||
+      !ready
+    )
+      return;
     const pending = pendingImport,
       epoch = accountEpoch.current,
       key = cacheKey(userId);
@@ -437,9 +476,16 @@ export default function StudioPage() {
       setPendingImport(null);
       return tell("工作空间已变化，请重新选择备份");
     }
+    restoreInFlight.current = true;
     setImportBusy(true);
     setImportError("");
     try {
+      await verifyBackupBuild();
+      if (
+        accountEpoch.current !== epoch ||
+        importSequence.current !== requestId
+      )
+        throw Error("工作空间或备份选择已变化，请重新选择文件");
       const recoveryRaw = storageBlocked
         ? (await readWorkspace(key)) || JSON.stringify(data)
         : backupJSON(snapshot());
@@ -470,6 +516,7 @@ export default function StudioPage() {
       if (accountEpoch.current === epoch)
         setImportError((e as Error).message || "本地存储不可用，原项目未修改");
     } finally {
+      restoreInFlight.current = false;
       setImportBusy(false);
     }
   }
@@ -587,7 +634,11 @@ export default function StudioPage() {
             data={data}
             onImportFile={previewImport}
             backupStatus={
-              <BackupStatus state={backupState} onExport={exportData} />
+              <BackupStatus
+                state={backupState}
+                onExport={exportData}
+                onRestore={() => restoreInput.current?.click()}
+              />
             }
             onExport={exportData}
             tell={tell}
@@ -715,7 +766,11 @@ export default function StudioPage() {
                   手机查看模式
                 </button>
               </div>
-              <BackupStatus state={backupState} onExport={exportData} />
+              <BackupStatus
+                state={backupState}
+                onExport={exportData}
+                onRestore={() => restoreInput.current?.click()}
+              />
               <div className="breadcrumb">
                 项目工作台 <span>/</span> {page}
               </div>
@@ -2012,7 +2067,7 @@ export default function StudioPage() {
                       导入 JSON 元数据到云端（不含媒体）
                       <input
                         type="file"
-                        accept="application/json"
+                        accept=".json,application/json"
                         disabled={busy}
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
@@ -2036,7 +2091,7 @@ export default function StudioPage() {
                     导入项目备份到本地
                     <input
                       type="file"
-                      accept="application/json"
+                      accept=".json,application/json"
                       onChange={async (e) => {
                         const input = e.currentTarget,
                           file = input.files?.[0];
@@ -2074,6 +2129,19 @@ export default function StudioPage() {
           )}
         </div>
       )}
+      <input
+        hidden
+        ref={restoreInput}
+        type="file"
+        accept=".json,application/json"
+        aria-label="选择恢复备份文件"
+        onChange={async (e) => {
+          const input = e.currentTarget,
+            file = input.files?.[0];
+          if (file) await previewImport(file);
+          input.value = "";
+        }}
+      />
       {pendingImport && (
         <BackupImportDialog
           data={pendingImport.data}
@@ -2081,11 +2149,9 @@ export default function StudioPage() {
           fileName={pendingImport.fileName}
           busy={importBusy}
           error={importError}
-          onCancel={() => {
-            setPendingImport(null);
-            setImportError("");
-          }}
-          onConfirm={() => void confirmImport()}
+          warning={pendingImport.warning}
+          onCancel={cancelImport}
+          onConfirm={() => void confirmImport(pendingImport.requestId)}
         />
       )}
       {readerMode && notice && (
