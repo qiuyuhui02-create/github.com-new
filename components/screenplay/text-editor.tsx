@@ -5,15 +5,22 @@ import {
   type TextareaHTMLAttributes,
   type Ref,
 } from "react";
-import { captureSelection, type TextSelection } from "@/lib/text-selection";
+import { nativeTextChange, type TextChange } from "@/lib/highlights";
+import {
+  captureSelection,
+  selectionForSource,
+  editorText,
+  type TextSelection,
+} from "@/lib/text-selection";
 type Props = Omit<
   TextareaHTMLAttributes<HTMLTextAreaElement>,
   "value" | "defaultValue" | "onChange" | "onSelect"
 > & {
   value: string;
-  onChange?: (text: string) => void;
+  onChange?: (text: string, change?: TextChange) => void;
   onSelection?: (selection: TextSelection) => void;
   editorRef?: Ref<HTMLTextAreaElement>;
+  onCompositionState?: (active: boolean) => void;
 };
 /** Uncontrolled native editor: autosave does not assign .value or remount it.
  * No keyboard/context-menu interception, retaining browser undo, clipboard and IME. */
@@ -22,14 +29,18 @@ export default function TextEditor({
   onChange,
   onSelection,
   editorRef,
+  onCompositionState,
   ...props
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null),
     initial = useRef(value),
-    composing = useRef(false);
+    composing = useRef(false),
+    beforeInput = useRef<{ selection: TextSelection; type: string } | null>(
+      null,
+    );
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el && !composing.current && el.value !== value) {
+    if (el && !composing.current && el.value !== editorText(value)) {
       const {
         selectionStart: start,
         selectionEnd: end,
@@ -45,8 +56,20 @@ export default function TextEditor({
       el.scrollTop = scrollTop;
     }
   }, [value]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const captureBefore = (event: Event) => {
+      beforeInput.current = {
+        selection: captureSelection(el),
+        type: (event as InputEvent).inputType || "",
+      };
+    };
+    el.addEventListener("beforeinput", captureBefore);
+    return () => el.removeEventListener("beforeinput", captureBefore);
+  }, []);
   const capture = (el: HTMLTextAreaElement) =>
-    onSelection?.(captureSelection(el));
+    onSelection?.(selectionForSource(el, value));
   return (
     <textarea
       {...props}
@@ -57,8 +80,19 @@ export default function TextEditor({
       }}
       defaultValue={initial.current}
       onChange={(e) => {
+        const before = beforeInput.current;
+        beforeInput.current = null;
         capture(e.currentTarget);
-        onChange?.(e.currentTarget.value);
+        onChange?.(
+          e.currentTarget.value,
+          before
+            ? nativeTextChange(
+                before.selection,
+                e.currentTarget.value,
+                before.type,
+              )
+            : undefined,
+        );
       }}
       onSelect={(e) => {
         if (document.activeElement === e.currentTarget)
@@ -73,9 +107,11 @@ export default function TextEditor({
       }}
       onCompositionStart={() => {
         composing.current = true;
+        onCompositionState?.(true);
       }}
       onCompositionEnd={(e) => {
         composing.current = false;
+        onCompositionState?.(false);
         capture(e.currentTarget);
         onChange?.(e.currentTarget.value);
       }}

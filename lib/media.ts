@@ -1,3 +1,4 @@
+import { copyHighlights } from "./highlights";
 import type { ScriptScene } from "./screenplay";
 import { sha256 } from "@noble/hashes/sha2.js";
 import type { Studio } from "./model";
@@ -336,6 +337,10 @@ export function cloudMetadata(data: Studio): Studio {
       : {}),
     original: s.original,
     draft: s.draft,
+    ...(s.highlights ? { highlights: copyHighlights(s.highlights) } : {}),
+    ...(s.highlightsHidden !== undefined
+      ? { highlightsHidden: s.highlightsHidden }
+      : {}),
     draftRevision: s.draftRevision,
     ...(s.draftUndo ? { draftUndo: [...s.draftUndo] } : {}),
     ...(s.draftEditBase !== undefined
@@ -354,6 +359,7 @@ export function cloudMetadata(data: Studio): Studio {
       text: v.text,
       model: v.model,
       ...(v.kind ? { kind: v.kind } : {}),
+      ...(v.highlights ? { highlights: copyHighlights(v.highlights) } : {}),
       at: v.at,
     })),
     ...(s.final

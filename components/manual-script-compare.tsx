@@ -10,6 +10,7 @@ import {
   insertSelection,
   selectedText,
   validSelection,
+  restoreTextSelection,
   type TextSelection,
 } from "@/lib/text-selection";
 import TextEditor from "./screenplay/text-editor";
@@ -77,10 +78,7 @@ export default function ManualScriptCompare({
   function restoreCandidate() {
     const el = editors.current[active],
       s = selections.current[active];
-    if (el && validSelection(s, el.value)) {
-      el.focus({ preventScroll: true });
-      el.setSelectionRange(s.start, s.end, s.direction);
-    }
+    if (el) restoreTextSelection(el, s);
   }
   function apply(all = false) {
     try {
@@ -104,6 +102,7 @@ export default function ManualScriptCompare({
           result.text,
           true,
           `${current.model} · 人工采用`,
+          "change" in result ? result.change : undefined,
         ),
       );
       draftSelection.current = {
@@ -246,9 +245,11 @@ export default function ManualScriptCompare({
               onSelection={source === "draft" ? rememberTarget : undefined}
               onChange={
                 source === "draft"
-                  ? (text) => {
+                  ? (text, change) => {
                       try {
-                        patch(editDraft(scene, text));
+                        patch(
+                          editDraft(scene, text, false, "人工修改", change),
+                        );
                       } catch (e) {
                         tell((e as Error).message);
                       }

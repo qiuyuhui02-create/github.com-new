@@ -52,5 +52,55 @@ export function insertSelection(
   return {
     text: draft.slice(0, start) + prefix + text + draft.slice(end),
     cursor: start + prefix.length + text.length,
+    change: { before: draft, from: start, to: end, insert: prefix + text },
   };
+}
+
+// Native textarea values normalize CRLF/CR. Persisted screenplay text is not rewritten.
+export const editorText = (text: string) => text.replace(/\r\n?/g, "\n");
+export function editorOffset(source: string, offset: number) {
+  if (!source.includes("\r")) return Math.min(offset, source.length);
+  return editorText(source.slice(0, offset)).length;
+}
+export function sourceOffset(source: string, offset: number) {
+  if (!source.includes("\r")) return Math.min(offset, source.length);
+  let raw = 0,
+    logical = 0;
+  while (raw < source.length && logical < offset) {
+    raw += source[raw] === "\r" && source[raw + 1] === "\n" ? 2 : 1;
+    logical++;
+  }
+  return raw;
+}
+export function selectionForSource(
+  el: HTMLTextAreaElement,
+  source: string,
+): TextSelection {
+  const native = captureSelection(el);
+  return editorText(source) === native.text
+    ? {
+        ...native,
+        text: source,
+        start: sourceOffset(source, native.start),
+        end: sourceOffset(source, native.end),
+      }
+    : native;
+}
+export function restoreTextSelection(
+  el: HTMLTextAreaElement,
+  selection: TextSelection | null | undefined,
+) {
+  if (
+    !selection ||
+    !validSelection(selection, selection.text) ||
+    editorText(selection.text) !== el.value
+  )
+    return false;
+  el.focus({ preventScroll: true });
+  el.setSelectionRange(
+    editorOffset(selection.text, selection.start),
+    editorOffset(selection.text, selection.end),
+    selection.direction,
+  );
+  return true;
 }
