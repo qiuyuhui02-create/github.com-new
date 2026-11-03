@@ -218,8 +218,10 @@ test("one chapter confirmation archives all scenes, reload and JSON restore reta
       mimeType: "application/json",
       buffer: Buffer.from(raw),
     });
+    await p
+      .getByRole("button", { name: "确认覆盖当前本地项目", exact: true })
+      .click();
     await expect(p.locator(".toast")).toContainText("已导入项目");
-    await p.getByRole("button", { name: "关闭窗口", exact: true }).click();
     await p.getByRole("button", { name: "剧本工作台", exact: true }).click();
     await p.getByText("章节回收站 · 1 项", { exact: true }).click();
     await p.getByRole("button", { name: "恢复章节 序幕", exact: true }).click();

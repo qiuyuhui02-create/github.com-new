@@ -273,12 +273,14 @@ test("manual shot, nine-grid order and four independent video references survive
   try {
     const mobile = await phone.newPage();
     await mobile.goto("http://127.0.0.1:3000/");
-    mobile.once("dialog", (d) => d.accept());
     await mobile.getByLabel("手机导入项目快照").setInputFiles({
       name: "manual.json",
       mimeType: "application/json",
       buffer: Buffer.from(raw),
     });
+    await mobile
+      .getByRole("button", { name: "确认覆盖当前本地项目", exact: true })
+      .click();
     await expect(mobile.locator(".toast")).toContainText("项目快照已导入");
     await mobile.getByRole("button", { name: "Prompt", exact: true }).click();
     const video = mobile

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   Film,
@@ -12,7 +12,6 @@ import {
   BookOpen,
 } from "lucide-react";
 import type { Studio } from "@/lib/model";
-import { parseStudio } from "@/lib/model";
 import { type VideoJob, localDate, timeText } from "@/lib/workflow";
 import { timestamp } from "@/lib/snapshots";
 const tabs = [
@@ -25,7 +24,8 @@ const tabs = [
 ];
 export default function MobileReader({
   data,
-  onImport,
+  onImportFile,
+  backupStatus,
   tell,
   onEdit,
   saveStatus,
@@ -34,7 +34,8 @@ export default function MobileReader({
   data: Studio;
   saveStatus?: string;
   onExport: () => void;
-  onImport: (d: Studio) => Promise<void>;
+  onImportFile: (file: File) => Promise<void>;
+  backupStatus: ReactNode;
   tell: (s: string) => void;
   onEdit: () => void;
 }) {
@@ -150,15 +151,7 @@ export default function MobileReader({
             if (!f) return;
             setBusy(true);
             try {
-              if (f.size > 100 * 1024 * 1024) throw Error("快照超过 100MB");
-              const d = parseStudio(JSON.parse(await f.text()));
-              if (
-                !confirm(
-                  `导入“${d.projectName || f.name}”${d.snapshot ? `（v${d.snapshot.revision}，导出于 ${timestamp(d.snapshot.exportedAt)}）` : "（旧版 JSON，更新时间未知）"}？这将替换当前手机本地快照；当前内容会保留一份恢复前快照，不会修改 Mac、Supabase 或原始素材。`,
-                )
-              )
-                return;
-              await onImport(d);
+              await onImportFile(f);
             } catch (error) {
               tell(`导入失败：${(error as Error).message}`);
             } finally {
@@ -168,6 +161,7 @@ export default function MobileReader({
           }}
         />
       </section>
+      {backupStatus}
       <nav className="reader-nav" aria-label="手机简洁导航">
         {tabs.map((t) => (
           <button

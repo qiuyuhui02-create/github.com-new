@@ -133,8 +133,10 @@ test("free local workflow: schedule, timer across tabs/reload, mood, three draft
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(backup)),
   });
+  await page
+    .getByRole("button", { name: "确认覆盖当前本地项目", exact: true })
+    .click();
   await expect(page.locator(".toast")).toContainText("已导入项目");
-  await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
   await page.reload();
   await expect(page.getByLabel("创作日记", { exact: true })).toHaveValue(
     backup.journals[0].text,

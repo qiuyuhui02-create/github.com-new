@@ -4712,3 +4712,97 @@ footer {
   min-height: 72px;
   align-content: center;
 }
+
+/* Local backup safety, outside the screenplay/storyboard editors. */
+.backup-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  margin: 0 0 22px;
+  border: 1px solid #e3eadc;
+  border-radius: 12px;
+  color: #597268;
+  background: #f4f7ef;
+  font-size: 11px;
+}
+.backup-status > div:first-child {
+  flex: 1;
+  min-width: 220px;
+}
+.backup-status small {
+  display: block;
+  color: #7b8c7e;
+  font-size: 10px;
+  line-height: 1.7;
+  margin-top: 5px;
+}
+.backup-pending,
+.backup-reminder {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 11px;
+}
+.backup-status .backup-pending button {
+  margin-left: 8px;
+}
+.backup-reminder {
+  color: #8b734f;
+}
+.backup-import-summary {
+  font-size: 13px;
+  line-height: 1.8;
+  max-height: 70dvh;
+  overflow: auto;
+  padding-right: 6px;
+}
+.backup-import-summary dl {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0;
+}
+.backup-import-summary dl div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid #e5eadd;
+}
+.backup-import-summary dt {
+  color: #6d8273;
+}
+.backup-import-summary dd {
+  margin: 0;
+  text-align: right;
+}
+.backup-replace-warning {
+  padding: 14px;
+  background: #f8eee3;
+  border-radius: 10px;
+}
+@media (max-width: 760px) {
+  .backup-import-summary .button-row {
+    display: grid;
+  }
+  .mobile-reader .backup-status {
+    margin-top: 16px;
+  }
+}
+.backup-build-info {
+  flex-basis: 100%;
+  color: #738577;
+  font-size: 10px;
+}
+.backup-build-info summary {
+  cursor: pointer;
+}
+.backup-build-info > span {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 5px;
+}
+.backup-build-info > p {
+  margin: 8px 0 0;
+  line-height: 1.7;
+}
